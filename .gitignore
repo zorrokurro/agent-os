@@ -1,0 +1,14 @@
+node_modules/
+dist/
+dist-renderer/
+dist-electron/
+data/
+.env
+.env.local
+*.log
+.DS_Store
+Thumbs.db
+*.ico
+*.exe
+release/
+.aider*

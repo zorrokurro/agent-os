@@ -1,0 +1,33 @@
+{
+  "id": "openhuman",
+  "name": "OpenHuman",
+  "version": "1.0.0",
+  "description": "人類級 AI 助理平台 — 個人化記憶、情感分析、長期陪伴",
+  "author": "System Detection",
+  "category": "獨立 Agent",
+  "icon": "🧑",
+  "tags": [
+    "獨立安裝",
+    "系統偵測"
+  ],
+  "price": "free",
+  "runtime": {
+    "type": "binary",
+    "entry": "openhuman",
+    "port": 0
+  },
+  "api": {
+    "version": "1.x",
+    "basePath": "/api/v1"
+  },
+  "dependencies": {},
+  "_detected_configDirs": [
+    "C:\\Users\\layja\\.openhuman",
+    "C:\\Users\\layja\\OpenHuman"
+  ],
+  "_detected_dataDirs": [
+    "C:\\Users\\layja\\.openhuman\\users",
+    "C:\\Users\\layja\\.openhuman\\cache"
+  ],
+  "_detected_at": "2026-06-04T22:57:53.799Z"
+}

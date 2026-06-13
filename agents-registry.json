@@ -1,0 +1,72 @@
+{
+  "version": "1.0.0",
+  "updatedAt": "2026-05-30",
+  "agents": [
+    {
+      "id": "hermes",
+      "name": "Hermes Agent",
+      "author": "AgentOS Labs",
+      "description": "AI Agent 管理平台核心 — 任務委派、工具調用、記憶管理",
+      "repoUrl": "https://github.com/nousresearch/hermes-agent",
+      "category": "nlp",
+      "tags": ["core", "orchestrator"],
+      "price": "free",
+      "featured": false
+    },
+    {
+      "id": "codex-alpha",
+      "name": "Codex Alpha v2",
+      "author": "AgentOS Labs",
+      "description": "最強程式碼助手，整合即時 debugger 與文件生成器，支援 40+ 語言",
+      "repoUrl": "https://github.com/agentos-labs/codex-alpha",
+      "category": "nlp",
+      "tags": ["code", "enterprise"],
+      "price": 299,
+      "featured": true
+    },
+    {
+      "id": "nexus-chat",
+      "name": "Nexus Chat 4",
+      "author": "NeuralSphere AI",
+      "description": "高效能對話 Agent，支援長上下文與工具呼叫",
+      "repoUrl": "https://github.com/neuralsphere/nexus-chat",
+      "category": "nlp",
+      "tags": ["llm", "efficiency"],
+      "price": "free",
+      "featured": false
+    },
+    {
+      "id": "cipher-guard",
+      "name": "CipherGuard",
+      "author": "ShieldLabs",
+      "description": "企業級資安分析 Agent，即時威脅偵測與漏洞掃描",
+      "repoUrl": "https://github.com/shieldlabs/cipher-guard",
+      "category": "security",
+      "tags": ["security", "enterprise"],
+      "price": 49,
+      "featured": false
+    },
+    {
+      "id": "audio-synthetix",
+      "name": "AudioSynthetix",
+      "author": "WaveForm Systems",
+      "description": "音訊合成與後製自動化 Agent，支援 TTS、降噪、轉檔",
+      "repoUrl": "https://github.com/waveform/audio-synthetix",
+      "category": "audio",
+      "tags": ["audio", "production"],
+      "price": 12,
+      "featured": false
+    },
+    {
+      "id": "vision-craft",
+      "name": "VisionCraft Pro",
+      "author": "PixelMind AI",
+      "description": "電腦視覺分析 Agent，支援物件偵測、OCR、影像生成",
+      "repoUrl": "https://github.com/pixelmind/vision-craft",
+      "category": "vision",
+      "tags": ["vision", "multimodal"],
+      "price": "free",
+      "featured": false
+    }
+  ]
+}

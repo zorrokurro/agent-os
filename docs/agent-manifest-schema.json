@@ -1,0 +1,109 @@
+{
+  "name": "Agent Manifest Schema",
+  "version": "1.0.0",
+  "description": "AgentOS Agent manifest 格式定義",
+  "schema": {
+    "id": {
+      "type": "string",
+      "required": true,
+      "description": "Agent 唯一識別碼"
+    },
+    "name": {
+      "type": "string",      "required": true,
+      "description": "Agent 顯示名稱"
+    },
+    "version": {
+      "type": "string",
+      "required": true,
+      "format": "semver",
+      "description": "Agent 版本號"
+    },
+    "description": {
+      "type": "string",
+      "description": "Agent 功能描述"
+    },
+    "author": {
+      "type": "string",
+      "description": "開發者"
+    },
+    "category": {
+      "type": "string",
+      "enum": ["核心", "框架", "知識庫", "自動化", "搜尋", "開發", "生產力", "創作"]
+    },
+    "icon": {
+      "type": "string",
+      "description": "Emoji 或圖示路徑"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "price": {
+      "type": ["number", "string"],
+      "description": "價格數字或 'free'"
+    },
+    "docker": {
+      "type": "object",
+      "required": true,
+      "properties": {
+        "image": { "type": "string", "description": "Docker image 名稱" },
+        "tag": { "type": "string", "description": "Image tag，預設 latest" },
+        "ports": {
+          "type": "object",
+          "description": "port 對應，如 {\"3000\": \"3000\"}"
+        },
+        "env": {
+          "type": "object",
+          "description": "環境變數"
+        },
+        "volumes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Volume 掛載，如 [\"/app/data:/data\"]"
+        }
+      }
+    },
+    "api": {
+      "type": "object",
+      "required": true,
+      "properties": {
+        "version": { "type": "string", "description": "API 版本，如 1.x" },
+        "basePath": { "type": "string", "description": "API base path，如 /api/v1" },
+        "endpoints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "method": { "type": "string" },
+              "path": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "patternProperties": {
+        "^[a-z0-9-]+$": {
+          "type": "object",
+          "properties": {
+            "apiVersion": { "type": "string", "description": "要求的 API 版本，如 1.x" },
+            "optional": { "type": "boolean", "description": "是否可選，預設 false" }
+          }
+        }
+      }
+    },
+    "migrationScript": {
+      "type": "string",
+      "description": "升級時執行的遷移腳本路徑"
+    },
+    "healthCheck": {
+      "type": "object",
+      "properties": {
+        "path": { "type": "string", "description": "健康檢查 endpoint" },
+        "interval": { "type": "number", "description": "檢查間隔秒數" }
+      }
+    }
+  }
+}

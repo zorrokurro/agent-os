@@ -1,0 +1,50 @@
+{
+  "settings": {
+    "title": "⚙️ 設定",
+    "subtitle": "AgentOS 系統設定",
+    "saved": "✓ 已儲存",
+    "save": "儲存設定",
+    "general": {
+      "title": "🔧 一般設定",
+      "autoStart": "開機自動啟動",
+      "autoStartDesc": "Windows 開機時自動啟動 AgentOS",
+      "autoUpdate": "自動更新",
+      "autoUpdateDesc": "自動檢查並下載 AgentOS 更新",
+      "darkMode": "深色模式",
+      "darkModeDesc": "使用深色主題",
+      "language": "語言"
+    },
+    "provider": {
+      "title": "🌐 AI 提供者設定",
+      "providerId": "模型提供者",
+      "apiKey": "API Key"
+    },
+    "ollama": {
+      "title": "🧠 Ollama 設定",
+      "url": "Ollama URL",
+      "checkInterval": "健康檢查間隔（秒）"
+    },
+    "memory": {
+      "title": "💾 記憶層設定",
+      "path": "記憶層路徑",
+      "pathDesc": "所有 Agent 的共享記憶儲存位置"
+    },
+    "about": {
+      "title": "ℹ️ 關於",
+      "version": "AgentOS v0.1.0",
+      "copyright": "© 2026 AgentOS Team",
+      "description": "AgentOS 是一個針對 Windows 平台設計的 AI Agent 管理平台。"
+    },
+    "update": {
+      "checking": "正在檢查更新...",
+      "available": "有新版本可下載：v{{version}}",
+      "notAvailable": "已是最新版本",
+      "downloading": "正在下載更新... {{percent}}%",
+      "downloaded": "更新已下載完成，重新啟動後將自動安裝",
+      "error": "檢查更新失敗：{{message}}",
+      "checkNow": "立即檢查更新",
+      "download": "下載更新",
+      "restart": "重新啟動以安裝"
+    }
+  }
+}

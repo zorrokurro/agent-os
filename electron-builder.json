@@ -1,0 +1,27 @@
+{
+  "appId": "com.agentos.desktop",
+  "productName": "AgentOS",
+  "asar": false,
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist-electron",
+    "dist-renderer",
+    "public",
+    "agents-registry.json",
+    "agents"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ]
+  },
+  "portable": {
+    "artifactName": "AgentOS.exe"
+  },
+  "buildNumber": 1
+}
