@@ -128,6 +128,10 @@ declare global {
       onOrchestratorTaskFail: (callback: (data: { taskId: string; message: string }) => void) => () => void
       onOrchestratorResult: (callback: (data: { message: string; result: string }) => void) => () => void
 
+      // GitHub Installer
+      githubAnalyze: (url: string) => Promise<{ name: string; description: string; stack: 'node' | 'python' | 'unknown'; installCommands: string[] }>
+      githubInstall: (url: string, onLog: (line: string) => void) => Promise<{ success: boolean; path: string; error?: string }>
+
       // Discord
       discordStart: () => Promise<{ success: boolean; message: string }>
       discordStop: () => Promise<{ success: boolean; message: string }>

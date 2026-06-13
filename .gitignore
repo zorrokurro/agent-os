@@ -12,3 +12,6 @@ Thumbs.db
 *.exe
 release/
 .aider*
+
+# Cloned agents (installed via GitHub installer)
+agents/

@@ -187,6 +187,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('orchestrator:result', handler)
   },
 
+  // GitHub Installer
+  githubAnalyze: (url) => ipcRenderer.invoke('github:analyze', url),
+  githubInstall: (url, onLog) => {
+    const handler = (_: unknown, line: string) => onLog(line)
+    ipcRenderer.on('github:install-log', handler)
+    const installPromise = ipcRenderer.invoke('github:install', url)
+    installPromise.finally(() => ipcRenderer.removeListener('github:install-log', handler))
+    return installPromise
+  },
+
   // Discord
   discordStart: () => ipcRenderer.invoke('discord:start'),
   discordStop: () => ipcRenderer.invoke('discord:stop'),

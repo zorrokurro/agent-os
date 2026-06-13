@@ -382,6 +382,28 @@ async function registerIPC() {
     }
   })
 
+  // === GitHub Installer ===
+  ipcMain.handle('github:analyze', async (_, url: string) => {
+    const { analyzeRepo } = await import('./services/installer-github')
+    try {
+      return await analyzeRepo(url)
+    } catch (e) {
+      throw e instanceof Error ? e : new Error(String(e))
+    }
+  })
+
+  ipcMain.handle('github:install', async (event, url: string) => {
+    const { installRepo } = await import('./services/installer-github')
+    const sender = event.sender
+    try {
+      return await installRepo(url, (line: string) => {
+        sender.send('github:install-log', line)
+      })
+    } catch (e) {
+      throw e instanceof Error ? e : new Error(String(e))
+    }
+  })
+
   ipcMain.handle('health-check-agent', async (_, id: string) => {
     const ok = await agentMgr.healthCheck(id)
     return { healthy: ok }

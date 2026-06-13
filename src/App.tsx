@@ -88,7 +88,7 @@ function App() {
           <NavButton active={page === 'notebook'} onClick={() => setPage('notebook')} icon="menu_book" label="Notebook" />
           <NavButton active={page === 'research'} onClick={() => setPage('research')} icon="analytics" label="研究模式" />
           <div style={{ margin: '12px 8px', borderTop: '1px solid rgba(255,255,255,0.1)' }} />
-          <NavButton active={page === 'store'} onClick={() => setPage('store')} icon="storefront" label="商城" />
+          <NavButton active={page === 'store'} onClick={() => setPage('store')} icon="download" label="安裝器" />
           <NavButton active={page === 'ump'} onClick={() => setPage('ump')} icon="hub" label="UMP 記憶協議" />
           <NavButton active={page === 'sysagents'} onClick={() => setPage('sysagents')} icon="radar" label="系統 Agent 偵測" />
           <div style={{ margin: '12px 8px', borderTop: '1px solid rgba(255,255,255,0.1)' }} />
