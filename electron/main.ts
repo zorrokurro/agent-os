@@ -16,6 +16,7 @@ import { MemoryHub } from './services/ump/hub'
 import { MemoryExchange } from './services/ump/exchange'
 import { SystemDetector } from './services/system-detector'
 import { Orchestrator } from './services/orchestrator/orchestrator'
+import * as discordService from './services/discord'
 import Store from 'electron-store'
 
 declare const __filename: string
@@ -46,6 +47,9 @@ const store = new Store<{
   autoUpdate: boolean
   language: string
   memoryPath: string
+  discordToken: string
+  discordChannelId: string
+  discordEnabled: boolean
 }>({
   defaults: {
     installed: false,
@@ -64,6 +68,9 @@ const store = new Store<{
     autoUpdate: true,
     language: 'zh-TW',
     memoryPath: 'C:\\AgentOS\\Memory',
+    discordToken: '',
+    discordChannelId: '',
+    discordEnabled: false,
   },
 })
 
@@ -584,7 +591,13 @@ async function registerIPC() {
 
   ipcMain.handle('ump:update-task', (_, id: string, status: string, result?: string) => {
     try {
-      return umpHub.updateTaskStatus(id, status, result)
+      const ok = umpHub.updateTaskStatus(id, status, result)
+      if (ok && status === 'completed' && discordService.isRunning()) {
+        const tasks = umpHub.getTasks()
+        const task = tasks.find(t => t.id === id)
+        if (task) discordService.notifyTaskComplete(task)
+      }
+      return ok
     } catch (e) { return false }
   })
 
@@ -876,6 +889,42 @@ async function registerIPC() {
       return `錯誤：${String(e)}`
     }
   })
+
+  // === Discord Integration ===
+  ipcMain.handle('discord:start', async () => {
+    const config = {
+      token: store.get('discordToken'),
+      channelId: store.get('discordChannelId'),
+      enabled: store.get('discordEnabled'),
+    }
+    console.log(`[Discord] discord:start — channelId="${config.channelId}" token=${config.token ? '***' : 'EMPTY'} enabled=${config.enabled}`)
+    if (!config.token || !config.channelId) {
+      return { success: false, message: '缺少 Token 或頻道 ID' }
+    }
+    return discordService.startBot(config, umpHub)
+  })
+
+  ipcMain.handle('discord:stop', async () => {
+    return discordService.stopBot()
+  })
+
+  ipcMain.handle('discord:send', async (_, text: string) => {
+    return discordService.sendMessage(text)
+  })
+
+  ipcMain.handle('discord:test', async () => {
+    try {
+      return await discordService.testConnection()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error('[Discord] discord:test handler exception:', msg)
+      return { success: false, message: `❌ Handler 錯誤：${msg}` }
+    }
+  })
+
+  ipcMain.handle('discord:status', () => {
+    return { running: discordService.isRunning() }
+  })
 }
 
 app.whenReady().then(async () => {
@@ -892,6 +941,22 @@ app.whenReady().then(async () => {
   if (store.get('autoUpdate')) {
     // Delay auto-check slightly so the window has time to render
     setTimeout(() => autoUpdateService.checkForUpdates(), 5000)
+  }
+  // Auto-start Discord bot if configured
+  if (store.get('discordEnabled') && store.get('discordToken') && store.get('discordChannelId')) {
+    setTimeout(async () => {
+      try {
+        const config = {
+          token: store.get('discordToken'),
+          channelId: store.get('discordChannelId'),
+          enabled: store.get('discordEnabled'),
+        }
+        const result = await discordService.startBot(config, umpHubInstance!)
+        console.log('[Discord] Auto-start:', result.message)
+      } catch (e) {
+        console.error('[Discord] Auto-start failed:', e)
+      }
+    }, 2000)
   }
 })
 
@@ -910,6 +975,7 @@ app.on('before-quit', (e) => {
   if (umpHubInstance) umpHubInstance.close()
   const mgr = getAgentManager()
   const stability = stabilityService
+  discordService.stopBot().catch(() => {})
   mgr.destroy().then(() => {
     stability.destroy()
     app.quit()

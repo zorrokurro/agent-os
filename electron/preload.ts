@@ -179,6 +179,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('orchestrator:result', handler)
     return () => ipcRenderer.removeListener('orchestrator:result', handler)
   },
+
+  // Discord
+  discordStart: () => ipcRenderer.invoke('discord:start'),
+  discordStop: () => ipcRenderer.invoke('discord:stop'),
+  discordSend: (text) => ipcRenderer.invoke('discord:send', text),
+  discordTest: () => ipcRenderer.invoke('discord:test'),
+  discordStatus: () => ipcRenderer.invoke('discord:status'),
 })
 
 // Type declarations (for TypeScript tooling)

@@ -120,6 +120,13 @@ declare global {
       onOrchestratorTaskComplete: (callback: (data: { taskId: string; message: string; result: string }) => void) => () => void
       onOrchestratorTaskFail: (callback: (data: { taskId: string; message: string }) => void) => () => void
       onOrchestratorResult: (callback: (data: { message: string; result: string }) => void) => () => void
+
+      // Discord
+      discordStart: () => Promise<{ success: boolean; message: string }>
+      discordStop: () => Promise<{ success: boolean; message: string }>
+      discordSend: (text: string) => Promise<{ success: boolean; message: string }>
+      discordTest: () => Promise<{ success: boolean; message: string }>
+      discordStatus: () => Promise<{ running: boolean }>
     }
   }
 }

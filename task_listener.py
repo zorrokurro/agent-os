@@ -4,9 +4,10 @@ Polls ump.db for pending tasks targeting 'Hermes', executes them, and writes bac
 """
 import sqlite3, time, subprocess, sys, json, os
 
-DB_PATH = r'C:\Users\layja\AgentOS\data\ump.db'
+HOME = os.path.expanduser("~")
+DB_PATH = os.path.join(HOME, "AgentOS", "data", "ump.db")
 POLL_INTERVAL = 5  # seconds
-HERMES_CLI = r'C:\Users\layja\AppData\Local\hermes\bin\hermes.exe'
+HERMES_CLI = os.path.join(HOME, "AppData", "Local", "hermes", "bin", "hermes.exe")
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
@@ -47,7 +48,7 @@ def execute_task(task):
     print(f"[EXEC] Content: {content[:200]}")
     
     # Write task content to a temp file for Hermes to process
-    task_file = r'C:\Users\layja\AgentOS\data\current_task.txt'
+    task_file = os.path.join(HOME, "AgentOS", "data", "current_task.txt")
     with open(task_file, 'w', encoding='utf-8') as f:
         f.write(content)
     

@@ -8,6 +8,7 @@ interface Settings {
   providerId: string; modelId: string; ollamaUrl: string; apiKey: string;
   memoryPath: string; checkInterval: number;
   hermesUrl: string;
+  discordToken: string; discordChannelId: string; discordEnabled: boolean;
 }
 
 interface UpdateStatus {
@@ -21,6 +22,7 @@ function SettingsPage() {
     providerId: 'ollama', modelId: '', ollamaUrl: 'http://localhost:11434',
     apiKey: '', memoryPath: 'C:\\AgentOS\\Memory', checkInterval: 30,
     hermesUrl: 'http://localhost:8080',
+    discordToken: '', discordChannelId: '', discordEnabled: false,
   })
   const [providers, setProviders] = useState<ModelProvider[]>([])
   const [providerModels, setProviderModels] = useState<{ id: string; name: string }[]>([])
@@ -28,6 +30,8 @@ function SettingsPage() {
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null)
   const [hermesTestResult, setHermesTestResult] = useState<string | null>(null)
   const [hermesTesting, setHermesTesting] = useState(false)
+  const [discordTestResult, setDiscordTestResult] = useState<string | null>(null)
+  const [discordTesting, setDiscordTesting] = useState(false)
 
   useEffect(() => { loadSettings(); loadProviders() }, [])
 
@@ -77,6 +81,18 @@ function SettingsPage() {
       setHermesTestResult(`❌ 連線失敗：${e instanceof Error ? e.message : String(e)}`)
     } finally {
       setHermesTesting(false)
+    }
+  }
+  const testDiscord = async () => {
+    setDiscordTesting(true)
+    setDiscordTestResult(null)
+    try {
+      const result = await window.electronAPI.discordTest()
+      setDiscordTestResult(result.message)
+    } catch (e) {
+      setDiscordTestResult(`❌ 連線失敗：${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setDiscordTesting(false)
     }
   }
   const updateSetting = <K extends keyof Settings>(key: K, value: Settings[K]) => {
@@ -224,6 +240,49 @@ function SettingsPage() {
                 {hermesTestResult && (
                   <span style={{ fontSize: '13px', color: hermesTestResult.startsWith('✅') ? '#5c8a2a' : '#ef4444' }}>
                     {hermesTestResult}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Discord */}
+          <div className="glass-panel" style={{ borderRadius: '0.5rem', padding: '20px' }}>
+            <h2 style={{ color: '#d4e4fa', fontWeight: 600, marginBottom: 16, fontSize: '16px' }}>Discord</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+                <div>
+                  <div style={{ fontSize: '14px', color: '#d4e4fa' }}>啟用 Discord 整合</div>
+                  <div style={{ fontSize: '12px', color: '#494454' }}>開啟後可透過 Discord Bot 建立與接收任務</div>
+                </div>
+                <input type="checkbox" checked={settings.discordEnabled} onChange={e => updateSetting('discordEnabled', e.target.checked)} style={{ accentColor: '#a078ff' }} />
+              </label>
+              <div>
+                <div style={{ fontSize: '14px', color: '#d4e4fa', marginBottom: 8 }}>Bot Token</div>
+                <input type="password" value={settings.discordToken} onChange={e => updateSetting('discordToken', e.target.value)}
+                  style={{ width: '100%', maxWidth: '400px', padding: '10px 14px', borderRadius: '0.25rem', fontSize: '14px', background: '#0d1c2d', border: '1px solid rgba(255,255,255,0.1)', color: '#d4e4fa' }}
+                  placeholder="Discord Bot Token"
+                />
+              </div>
+              <div>
+                <div style={{ fontSize: '14px', color: '#d4e4fa', marginBottom: 8 }}>通知頻道 ID</div>
+                <input type="text" value={settings.discordChannelId} onChange={e => updateSetting('discordChannelId', e.target.value)}
+                  style={{ width: '100%', maxWidth: '400px', padding: '10px 14px', borderRadius: '0.25rem', fontSize: '14px', background: '#0d1c2d', border: '1px solid rgba(255,255,255,0.1)', color: '#d4e4fa' }}
+                  placeholder="Discord Channel ID"
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <button
+                  className="btn-primary"
+                  style={{ padding: '8px 16px', fontSize: '13px' }}
+                  onClick={testDiscord}
+                  disabled={discordTesting}
+                >
+                  {discordTesting ? '測試中...' : '測試連線'}
+                </button>
+                {discordTestResult && (
+                  <span style={{ fontSize: '13px', color: discordTestResult.startsWith('✅') ? '#5c8a2a' : '#ef4444' }}>
+                    {discordTestResult}
                   </span>
                 )}
               </div>
