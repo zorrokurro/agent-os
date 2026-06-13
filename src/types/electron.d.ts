@@ -113,6 +113,13 @@ declare global {
       noteAllTags: () => Promise<Array<{ tag: string; count: number }>>
       noteByTag: (tag: string, limit?: number) => Promise<Note[]>
 
+      // Sources
+      sourceImportPDF: (notebookId: string) => Promise<Source | { canceled: boolean } | { error: string }>
+      sourceImportURL: (url: string, notebookId: string) => Promise<Source | { error: string }>
+      sourceImportText: (text: string, notebookId: string) => Promise<Source | { error: string }>
+      sourceGet: (notebookId: string) => Promise<Source[]>
+      sourceDelete: (sourceId: string) => Promise<boolean>
+
       // Orchestrator
       orchestratorExecute: (prompt: string) => Promise<string>
       onOrchestratorProgress: (callback: (data: { message: string; tasks?: OrchestratorTask[] }) => void) => () => void
@@ -127,6 +134,14 @@ declare global {
       discordSend: (text: string) => Promise<{ success: boolean; message: string }>
       discordTest: () => Promise<{ success: boolean; message: string }>
       discordStatus: () => Promise<{ running: boolean }>
+
+      // Obsidian Sync
+      obsidianExport: () => Promise<{ exported: number; errors: string[] }>
+      obsidianImport: () => Promise<{ imported: number; updated: number; skipped: number; errors: string[] }>
+      obsidianSync: () => Promise<{ imported: number; updated: number; skipped: number; exported: number; errors: string[] }>
+      obsidianTest: (vaultPath: string) => Promise<{ ok: boolean; message: string }>
+      obsidianWatch: () => Promise<{ success: boolean; message: string }>
+      obsidianWatchStop: () => Promise<{ success: boolean }>
     }
   }
 }
@@ -161,6 +176,17 @@ export interface Note {
   pinned: boolean
   createdAt: string
   updatedAt: string
+}
+
+export interface Source {
+  id: string
+  title: string
+  type: 'pdf' | 'url' | 'text'
+  preview: string
+  content: string
+  tags: string[]
+  createdAt: string
+  metadata: Record<string, unknown>
 }
 
 export interface SystemAgent {

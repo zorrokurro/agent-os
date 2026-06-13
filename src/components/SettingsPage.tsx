@@ -9,6 +9,7 @@ interface Settings {
   memoryPath: string; checkInterval: number;
   hermesUrl: string;
   discordToken: string; discordChannelId: string; discordEnabled: boolean;
+  obsidianVault: string; obsidianLiveSync: boolean;
 }
 
 interface UpdateStatus {
@@ -19,10 +20,11 @@ function SettingsPage() {
   const { t } = useTranslation()
   const [settings, setSettings] = useState<Settings>({
     autoStart: true, autoUpdate: true, darkMode: true, language: 'zh-TW',
-    providerId: 'ollama', modelId: '', ollamaUrl: 'http://localhost:11434',
+    providerId: 'ollama', modelId: 'openai/gpt-4o-mini', ollamaUrl: 'http://localhost:11434',
     apiKey: '', memoryPath: 'C:\\AgentOS\\Memory', checkInterval: 30,
     hermesUrl: 'http://localhost:8080',
     discordToken: '', discordChannelId: '', discordEnabled: false,
+    obsidianVault: '', obsidianLiveSync: false,
   })
   const [providers, setProviders] = useState<ModelProvider[]>([])
   const [providerModels, setProviderModels] = useState<{ id: string; name: string }[]>([])
@@ -32,6 +34,10 @@ function SettingsPage() {
   const [hermesTesting, setHermesTesting] = useState(false)
   const [discordTestResult, setDiscordTestResult] = useState<string | null>(null)
   const [discordTesting, setDiscordTesting] = useState(false)
+  const [obsidianTestResult, setObsidianTestResult] = useState<string | null>(null)
+  const [obsidianTesting, setObsidianTesting] = useState(false)
+  const [obsidianSyncing, setObsidianSyncing] = useState(false)
+  const [obsidianSyncResult, setObsidianSyncResult] = useState<string | null>(null)
 
   useEffect(() => { loadSettings(); loadProviders() }, [])
 
@@ -93,6 +99,35 @@ function SettingsPage() {
       setDiscordTestResult(`❌ 連線失敗：${e instanceof Error ? e.message : String(e)}`)
     } finally {
       setDiscordTesting(false)
+    }
+  }
+  const testObsidian = async () => {
+    setObsidianTesting(true)
+    setObsidianTestResult(null)
+    try {
+      const result = await window.electronAPI.obsidianTest(settings.obsidianVault || '')
+      setObsidianTestResult(result.message)
+    } catch (e) {
+      setObsidianTestResult(`❌ 測試失敗：${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setObsidianTesting(false)
+    }
+  }
+  const syncObsidian = async () => {
+    setObsidianSyncing(true)
+    setObsidianSyncResult(null)
+    try {
+      const result = await window.electronAPI.obsidianSync()
+      const parts: string[] = []
+      if (result.imported > 0) parts.push(`匯入 ${result.imported} 筆`)
+      if (result.updated > 0) parts.push(`更新 ${result.updated} 筆`)
+      if (result.exported > 0) parts.push(`匯出 ${result.exported} 筆`)
+      if (parts.length === 0) parts.push('無變更')
+      setObsidianSyncResult(`✅ 同步完成：${parts.join('，')}`)
+    } catch (e) {
+      setObsidianSyncResult(`❌ 同步失敗：${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setObsidianSyncing(false)
     }
   }
   const updateSetting = <K extends keyof Settings>(key: K, value: Settings[K]) => {
@@ -195,6 +230,16 @@ function SettingsPage() {
                   />
                 </div>
               )}
+              {selectedProvider?.requiresKey && (
+                <div>
+                  <div style={{ fontSize: '14px', color: '#d4e4fa', marginBottom: 8 }}>模型 ID</div>
+                  <input type="text" value={settings.modelId} onChange={e => updateSetting('modelId', e.target.value)}
+                    style={{ width: '100%', maxWidth: '400px', padding: '10px 14px', borderRadius: '0.25rem', fontSize: '14px', background: '#0d1c2d', border: '1px solid rgba(255,255,255,0.1)', color: '#d4e4fa' }}
+                    placeholder="openai/gpt-4o-mini"
+                  />
+                  <div style={{ fontSize: '12px', color: '#494454', marginTop: 4 }}>輸入 OpenRouter 支援的模型 ID</div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -284,6 +329,59 @@ function SettingsPage() {
                   <span style={{ fontSize: '13px', color: discordTestResult.startsWith('✅') ? '#5c8a2a' : '#ef4444' }}>
                     {discordTestResult}
                   </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Obsidian */}
+          <div className="glass-panel" style={{ borderRadius: '0.5rem', padding: '20px' }}>
+            <h2 style={{ color: '#d4e4fa', fontWeight: 600, marginBottom: 16, fontSize: '16px' }}>Obsidian 雙向同步</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <div style={{ fontSize: '14px', color: '#d4e4fa', marginBottom: 8 }}>Vault 路徑</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input type="text" value={settings.obsidianVault} onChange={e => updateSetting('obsidianVault', e.target.value)}
+                    style={{ width: '100%', maxWidth: '400px' }} placeholder="C:\Users\layja\obsidian"
+                  />
+                  <button
+                    className="btn-primary"
+                    style={{ padding: '6px 12px', fontSize: '12px', whiteSpace: 'nowrap' }}
+                    onClick={testObsidian}
+                    disabled={obsidianTesting}
+                  >
+                    {obsidianTesting ? '測試中...' : '測試路徑'}
+                  </button>
+                </div>
+                {obsidianTestResult && (
+                  <div style={{ fontSize: '12px', color: obsidianTestResult.startsWith('✅') ? '#5c8a2a' : '#ef4444', marginTop: 4 }}>
+                    {obsidianTestResult}
+                  </div>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input type="checkbox" checked={settings.obsidianLiveSync}
+                  onChange={e => updateSetting('obsidianLiveSync', e.target.checked)}
+                  id="obsidian-livesync"
+                  style={{ accentColor: '#a078ff' }}
+                />
+                <label htmlFor="obsidian-livesync" style={{ fontSize: '14px', color: '#d4e4fa', cursor: 'pointer' }}>
+                  啟用即時同步（監聽 Vault 變更）
+                </label>
+              </div>
+              <div>
+                <button
+                  className="btn-primary"
+                  style={{ padding: '8px 16px', fontSize: '13px' }}
+                  onClick={syncObsidian}
+                  disabled={obsidianSyncing}
+                >
+                  {obsidianSyncing ? '同步中...' : '立即同步'}
+                </button>
+                {obsidianSyncResult && (
+                  <div style={{ fontSize: '12px', color: obsidianSyncResult.startsWith('✅') ? '#5c8a2a' : '#ef4444', marginTop: 4 }}>
+                    {obsidianSyncResult}
+                  </div>
                 )}
               </div>
             </div>

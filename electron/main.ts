@@ -17,6 +17,7 @@ import { MemoryExchange } from './services/ump/exchange'
 import { SystemDetector } from './services/system-detector'
 import { Orchestrator } from './services/orchestrator/orchestrator'
 import * as discordService from './services/discord'
+import * as obsidianService from './services/obsidian'
 import Store from 'electron-store'
 
 declare const __filename: string
@@ -448,7 +449,8 @@ async function registerIPC() {
   // === OpenRouter Chat ===
   ipcMain.handle('openrouter-chat', async (_, apiKey: string, model: string, messages: Array<{ role: string; content: string }>) => {
     const { net } = await import('electron')
-    const body = JSON.stringify({ model, messages, max_tokens: 1024, temperature: 0.7 })
+    const resolvedModel = model || 'openai/gpt-4o-mini'
+    const body = JSON.stringify({ model: resolvedModel, messages, max_tokens: 1024, temperature: 0.7 })
     return new Promise<string>((resolve, reject) => {
       const request = net.request({
         method: 'POST',
@@ -638,6 +640,7 @@ async function registerIPC() {
   umpHubInstance = umpHub
   const { setHub: setNotebookHub } = await import('./services/notebook')
   setNotebookHub(umpHub)
+  console.log('[Notebook] Service initialized')
   const umpExchange = new MemoryExchange()
   const umpBridge = new AgentOSBridge(agentosRoot, umpHub, umpExchange)
   const umpDiscovery = new AgentDiscovery(agentosRoot)
@@ -742,13 +745,14 @@ async function registerIPC() {
   })
 
   ipcMain.handle('notebook:create', (_, name: string, description?: string, icon?: string, color?: string) => {
-    try { return notebookService.createNotebook(name, description, icon, color) }
-    catch (e) { return { error: String(e) } }
+    console.log(`[Notebook] Creating notebook: ${name}`)
+    const result = notebookService.createNotebook(name, description, icon, color)
+    console.log('[Notebook] Created:', result)
+    return result
   })
 
   ipcMain.handle('notebook:update', (_, id: string, updates: Record<string, unknown>) => {
-    try { return notebookService.updateNotebook(id, updates as any) }
-    catch (e) { return { error: String(e) } }
+    return notebookService.updateNotebook(id, updates as any)
   })
 
   ipcMain.handle('notebook:delete', (_, id: string) => {
@@ -794,6 +798,89 @@ async function registerIPC() {
   ipcMain.handle('note:by-tag', (_, tag: string, limit?: number) => {
     try { return notebookService.getNotesByTag(tag, limit) }
     catch (e) { return [] }
+  })
+
+  // === Source Management ===
+  const { setHub: setSourceHub } = await import('./services/source')
+  const sourceService = await import('./services/source')
+  setSourceHub(umpHub)
+
+  ipcMain.handle('source:import-pdf', async (_, notebookId: string) => {
+    const { dialog } = await import('electron')
+    const result = await dialog.showOpenDialog({
+      title: '選擇 PDF 檔案',
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      properties: ['openFile'],
+    })
+    if (result.canceled || result.filePaths.length === 0) return { canceled: true }
+    try {
+      const source = await sourceService.importPDF(result.filePaths[0], notebookId)
+      return source
+    } catch (e) {
+      console.error('[Source] PDF import failed:', e)
+      return { error: String(e) }
+    }
+  })
+
+  ipcMain.handle('source:import-url', async (_, url: string, notebookId: string) => {
+    try {
+      return await sourceService.importURL(url, notebookId)
+    } catch (e) {
+      console.error('[Source] URL import failed:', e)
+      return { error: String(e) }
+    }
+  })
+
+  ipcMain.handle('source:import-text', (_, text: string, notebookId: string) => {
+    try {
+      return sourceService.importText(text, notebookId)
+    } catch (e) {
+      console.error('[Source] Text import failed:', e)
+      return { error: String(e) }
+    }
+  })
+
+  ipcMain.handle('source:get', (_, notebookId: string) => {
+    try { return sourceService.getSources(notebookId) }
+    catch (e) { return [] }
+  })
+
+  ipcMain.handle('source:delete', (_, sourceId: string) => {
+    try { return sourceService.deleteSource(sourceId) }
+    catch (e) { return false }
+  })
+
+  // === Obsidian Sync ===
+  ipcMain.handle('obsidian:export', () => {
+    try { return obsidianService.exportToObsidian() }
+    catch (e) { return { exported: 0, errors: [String(e)] } }
+  })
+
+  ipcMain.handle('obsidian:import', () => {
+    try { return obsidianService.importFromObsidian() }
+    catch (e) { return { imported: 0, updated: 0, skipped: 0, errors: [String(e)] } }
+  })
+
+  ipcMain.handle('obsidian:sync', () => {
+    try {
+      const importResult = obsidianService.importFromObsidian()
+      const exportResult = obsidianService.exportToObsidian()
+      return { imported: importResult.imported, updated: importResult.updated, skipped: importResult.skipped, exported: exportResult.exported, errors: [...importResult.errors, ...exportResult.errors] }
+    } catch (e) { return { imported: 0, updated: 0, skipped: 0, exported: 0, errors: [String(e)] } }
+  })
+
+  ipcMain.handle('obsidian:test', (_, vaultPath: string) => {
+    return obsidianService.testVaultPath(vaultPath)
+  })
+
+  ipcMain.handle('obsidian:watch', () => {
+    try { return obsidianService.startWatching() }
+    catch (e) { return { success: false, message: String(e) } }
+  })
+
+  ipcMain.handle('obsidian:watch-stop', () => {
+    obsidianService.stopWatching()
+    return { success: true }
   })
 
   // System Agent Detection

@@ -152,6 +152,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   noteAllTags: () => ipcRenderer.invoke('note:all-tags'),
   noteByTag: (tag, limit) => ipcRenderer.invoke('note:by-tag', tag, limit),
 
+  // Sources
+  sourceImportPDF: (notebookId) => ipcRenderer.invoke('source:import-pdf', notebookId),
+  sourceImportURL: (url, notebookId) => ipcRenderer.invoke('source:import-url', url, notebookId),
+  sourceImportText: (text, notebookId) => ipcRenderer.invoke('source:import-text', text, notebookId),
+  sourceGet: (notebookId) => ipcRenderer.invoke('source:get', notebookId),
+  sourceDelete: (sourceId) => ipcRenderer.invoke('source:delete', sourceId),
+
   // Orchestrator
   orchestratorExecute: (prompt) => ipcRenderer.invoke('orchestrator:execute', prompt),
   onOrchestratorProgress: (callback) => {
@@ -186,6 +193,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   discordSend: (text) => ipcRenderer.invoke('discord:send', text),
   discordTest: () => ipcRenderer.invoke('discord:test'),
   discordStatus: () => ipcRenderer.invoke('discord:status'),
+
+  // Obsidian Sync
+  obsidianExport: () => ipcRenderer.invoke('obsidian:export'),
+  obsidianImport: () => ipcRenderer.invoke('obsidian:import'),
+  obsidianSync: () => ipcRenderer.invoke('obsidian:sync'),
+  obsidianTest: (vaultPath) => ipcRenderer.invoke('obsidian:test', vaultPath),
+  obsidianWatch: () => ipcRenderer.invoke('obsidian:watch'),
+  obsidianWatchStop: () => ipcRenderer.invoke('obsidian:watch-stop'),
 })
 
 // Type declarations (for TypeScript tooling)

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import type { Notebook, Note } from '../types/electron'
+import type { Notebook, Note, Source } from '../types/electron'
 
 const COLORS = ['#a078ff', '#0566d9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899']
 const ICONS = ['📓', '📔', '📕', '📗', '📘', '📙', '🗂️', '💡', '🔬', '🎯', '🚀', '🧠']
@@ -80,10 +80,36 @@ export default function NotebookPage() {
   const [summary, setSummary] = useState<string>('')
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [extractLoading, setExtractLoading] = useState(false)
+  const [outlineLoading, setOutlineLoading] = useState(false)
+
+  // Obsidian auto-sync
+  const [obsidianVault, setObsidianVault] = useState('')
+  const [autoSync, setAutoSync] = useState(() => localStorage.getItem('obsidianAutoSync') === 'true')
+  const [syncing, setSyncing] = useState(false)
+
+  // Source management
+  const [sources, setSources] = useState<Source[]>([])
+  const [sourcesExpanded, setSourcesExpanded] = useState(false)
+  const [showUrlInput, setShowUrlInput] = useState(false)
+  const [urlInput, setUrlInput] = useState('')
+  const [showTextInput, setShowTextInput] = useState(false)
+  const [textInput, setTextInput] = useState('')
+  const [sourceLoading, setSourceLoading] = useState(false)
+  const [hoveredNoteId, setHoveredNoteId] = useState<string | null>(null)
 
   const loadNotebooks = useCallback(async () => {
     const list = await window.electronAPI.notebookList()
     setNotebooks(list)
+  }, [])
+
+  const loadSources = useCallback(async (notebookId: string) => {
+    try {
+      const list = await window.electronAPI.sourceGet(notebookId)
+      setSources(list)
+    } catch (e) {
+      console.error('Failed to load sources:', e)
+      setSources([])
+    }
   }, [])
 
   const loadTags = useCallback(async () => {
@@ -100,6 +126,7 @@ export default function NotebookPage() {
           modelId: (s.modelId as string) || '',
           providerId: (s.providerId as string) || 'ollama',
         })
+        setObsidianVault((s.obsidianVault as string) || '')
       }
     } catch (e) { console.error(e) }
   }, [])
@@ -110,6 +137,19 @@ export default function NotebookPage() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMessages])
 
+  const triggerSync = useCallback(async () => {
+    if (!autoSync || !obsidianVault) return
+    setSyncing(true)
+    try { await window.electronAPI.obsidianSync() } catch { /* silent */ }
+    finally { setSyncing(false) }
+  }, [autoSync, obsidianVault])
+
+  const toggleAutoSync = () => {
+    const next = !autoSync
+    setAutoSync(next)
+    localStorage.setItem('obsidianAutoSync', String(next))
+  }
+
   const selectNotebook = async (nb: Notebook) => {
     setSelectedNotebook(nb)
     setSelectedNote(null)
@@ -117,6 +157,7 @@ export default function NotebookPage() {
     setSummary('')
     const noteList = await window.electronAPI.noteList(nb.id)
     setNotes(noteList)
+    loadSources(nb.id)
   }
 
   const selectNote = (note: Note) => {
@@ -138,10 +179,21 @@ export default function NotebookPage() {
 
   const createNotebook = async () => {
     if (!newName.trim()) return
-    await window.electronAPI.notebookCreate(newName, newDesc, selectedIcon, selectedColor)
-    setShowNewNotebook(false)
-    setNewName(''); setNewDesc('')
-    loadNotebooks()
+    console.log(`嘗試建立筆記本：${newName}`)
+    try {
+      const result = await window.electronAPI.notebookCreate(newName, newDesc, selectedIcon, selectedColor)
+      if (result && (result as any).error) {
+        console.error('建立筆記本失敗：', (result as any).error)
+        return
+      }
+      console.log('建立筆記本成功：', result)
+      setShowNewNotebook(false)
+      setNewName(''); setNewDesc('')
+      loadNotebooks()
+      triggerSync()
+    } catch (e) {
+      console.error('建立筆記本例外：', e)
+    }
   }
 
   const createNote = async () => {
@@ -149,24 +201,28 @@ export default function NotebookPage() {
     const note = await window.electronAPI.noteCreate(selectedNotebook.id, '未命名筆記')
     await selectNotebook(selectedNotebook)
     selectNote(note)
+    triggerSync()
   }
 
   const saveNote = async () => {
     if (!selectedNote) return
     await window.electronAPI.noteUpdate(selectedNote.id, { content: editContent })
     if (selectedNotebook) await selectNotebook(selectedNotebook)
+    triggerSync()
   }
 
   const deleteNotebook = async (id: string) => {
     await window.electronAPI.notebookDelete(id)
     if (selectedNotebook?.id === id) { setSelectedNotebook(null); setNotes([]); setSelectedNote(null) }
     loadNotebooks()
+    triggerSync()
   }
 
   const deleteNote = async (id: string) => {
     await window.electronAPI.noteDelete(id)
     if (selectedNote?.id === id) { setSelectedNote(null); setEditContent('') }
     if (selectedNotebook) await selectNotebook(selectedNotebook)
+    triggerSync()
   }
 
   const togglePin = async (note: Note) => {
@@ -296,6 +352,120 @@ export default function NotebookPage() {
     }
   }
 
+  const generateOutline = async () => {
+    if (!selectedNotebook || outlineLoading) return
+    const apiKey = settings.apiKey
+    const model = settings.modelId
+    if (!apiKey || !model) {
+      alert('請先到設定頁面設定 API Key 和模型')
+      return
+    }
+    setOutlineLoading(true)
+    try {
+      const [noteList, sourceList] = await Promise.all([
+        window.electronAPI.noteList(selectedNotebook.id),
+        window.electronAPI.sourceGet(selectedNotebook.id),
+      ])
+
+      const notesText = noteList.map(n => `【${n.title}】\n${n.content || '（空白）'}`).join('\n\n---\n\n')
+      const sourcesText = sourceList.map(s => `【${s.title}】\n${s.preview.substring(0, 500)}`).join('\n\n---\n\n')
+
+      const systemPrompt = '請分析以下所有筆記和來源資料，生成一份完整的階層式大綱。\n用繁體中文，使用 Markdown 格式（# ## ### 標題層級）。'
+      const userPrompt = `筆記內容：\n${notesText || '（尚無筆記）'}\n\n來源資料：\n${sourcesText || '（尚無來源）'}`
+
+      const reply = await window.electronAPI.openrouterChat(apiKey, model, [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ])
+
+      if (!reply) {
+        alert('AI 未回傳內容')
+        return
+      }
+
+      const today = new Date().toISOString().split('T')[0]
+      const title = `大綱 - ${selectedNotebook.name} - ${today}`
+      await window.electronAPI.noteCreate(selectedNotebook.id, title, reply)
+      await selectNotebook(selectedNotebook)
+      alert('✅ 大綱已生成並存為新筆記')
+    } catch (e) {
+      console.error('Generate outline error:', e)
+      alert(`生成大綱失敗：${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setOutlineLoading(false)
+    }
+  }
+
+  const handleImportPDF = async () => {
+    if (!selectedNotebook) return
+    setSourceLoading(true)
+    try {
+      const result = await window.electronAPI.sourceImportPDF(selectedNotebook.id)
+      if (result && 'error' in result) {
+        console.error('PDF import failed:', result.error)
+        return
+      }
+      if (result && 'canceled' in result) return
+      loadSources(selectedNotebook.id)
+      triggerSync()
+    } catch (e) {
+      console.error('PDF import error:', e)
+    } finally {
+      setSourceLoading(false)
+    }
+  }
+
+  const handleImportURL = async () => {
+    if (!selectedNotebook || !urlInput.trim()) return
+    setSourceLoading(true)
+    try {
+      const result = await window.electronAPI.sourceImportURL(urlInput.trim(), selectedNotebook.id)
+      if (result && 'error' in result) {
+        console.error('URL import failed:', result.error)
+        return
+      }
+      setUrlInput('')
+      setShowUrlInput(false)
+      loadSources(selectedNotebook.id)
+      triggerSync()
+    } catch (e) {
+      console.error('URL import error:', e)
+    } finally {
+      setSourceLoading(false)
+    }
+  }
+
+  const handleImportText = async () => {
+    if (!selectedNotebook || !textInput.trim()) return
+    setSourceLoading(true)
+    try {
+      const result = await window.electronAPI.sourceImportText(textInput.trim(), selectedNotebook.id)
+      if (result && 'error' in result) {
+        console.error('Text import failed:', result.error)
+        return
+      }
+      setTextInput('')
+      setShowTextInput(false)
+      loadSources(selectedNotebook.id)
+      triggerSync()
+    } catch (e) {
+      console.error('Text import error:', e)
+    } finally {
+      setSourceLoading(false)
+    }
+  }
+
+  const handleDeleteSource = async (sourceId: string) => {
+    if (!selectedNotebook) return
+    try {
+      await window.electronAPI.sourceDelete(sourceId)
+      loadSources(selectedNotebook.id)
+      triggerSync()
+    } catch (e) {
+      console.error('Delete source error:', e)
+    }
+  }
+
   const displayNotes = filterTag
     ? notes.filter(n => n.tags.includes(filterTag))
     : searchResults.length > 0 || searchQuery
@@ -369,6 +539,91 @@ export default function NotebookPage() {
             </div>
           )}
         </div>
+
+        {/* Sources Section */}
+        {selectedNotebook && (
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+            <div
+              onClick={() => setSourcesExpanded(!sourcesExpanded)}
+              style={{ padding: '10px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+            >
+              <span style={{ color: '#d0bcff', fontSize: '13px', fontWeight: 600 }}>來源</span>
+              <span style={{ color: '#958ea0', fontSize: '11px' }}>
+                {sourcesExpanded ? '▾' : '▸'} {sources.length}
+              </span>
+            </div>
+
+            {sourcesExpanded && (
+              <div style={{ padding: '0 8px 8px', maxHeight: '200px', overflow: 'auto' }}>
+                {sources.map(src => (
+                  <div key={src.id} style={{ padding: '6px 8px', borderRadius: '4px', marginBottom: '2px', background: 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '12px' }}>
+                      {src.type === 'pdf' ? '📄' : src.type === 'url' ? '🔗' : '📝'}
+                    </span>
+                    <span style={{ color: '#e0d8e8', fontSize: '11px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {src.title}
+                    </span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteSource(src.id) }}
+                      style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '10px', cursor: 'pointer', padding: 0, opacity: 0.6 }}
+                    >✕</button>
+                  </div>
+                ))}
+                {sources.length === 0 && (
+                  <div style={{ color: '#958ea0', fontSize: '11px', textAlign: 'center', padding: '8px' }}>尚無來源</div>
+                )}
+
+                {/* URL Input */}
+                {showUrlInput && (
+                  <div style={{ marginTop: '6px' }}>
+                    <input
+                      value={urlInput}
+                      onChange={e => setUrlInput(e.target.value)}
+                      placeholder="貼上網址..."
+                      onKeyDown={e => { if (e.key === 'Enter') handleImportURL() }}
+                      style={{ width: '100%', padding: '5px 8px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#fff', fontSize: '11px', boxSizing: 'border-box' }}
+                    />
+                    <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                      <button onClick={handleImportURL} disabled={sourceLoading || !urlInput.trim()}
+                        style={{ flex: 1, padding: '4px', background: 'rgba(160,120,255,0.3)', border: 'none', borderRadius: '3px', color: '#d0bcff', fontSize: '10px', cursor: 'pointer' }}>擷取</button>
+                      <button onClick={() => { setShowUrlInput(false); setUrlInput('') }}
+                        style={{ flex: 1, padding: '4px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '3px', color: '#958ea0', fontSize: '10px', cursor: 'pointer' }}>取消</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Text Input */}
+                {showTextInput && (
+                  <div style={{ marginTop: '6px' }}>
+                    <textarea
+                      value={textInput}
+                      onChange={e => setTextInput(e.target.value)}
+                      placeholder="貼上文字內容..."
+                      rows={3}
+                      style={{ width: '100%', padding: '5px 8px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#fff', fontSize: '11px', boxSizing: 'border-box', resize: 'none' }}
+                    />
+                    <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                      <button onClick={handleImportText} disabled={sourceLoading || !textInput.trim()}
+                        style={{ flex: 1, padding: '4px', background: 'rgba(160,120,255,0.3)', border: 'none', borderRadius: '3px', color: '#d0bcff', fontSize: '10px', cursor: 'pointer' }}>儲存</button>
+                      <button onClick={() => { setShowTextInput(false); setTextInput('') }}
+                        style={{ flex: 1, padding: '4px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '3px', color: '#958ea0', fontSize: '10px', cursor: 'pointer' }}>取消</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Add Source Buttons */}
+                <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
+                  <button onClick={handleImportPDF} disabled={sourceLoading}
+                    style={{ flex: 1, padding: '5px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#958ea0', fontSize: '10px', cursor: 'pointer' }}>+ PDF</button>
+                  <button onClick={() => setShowUrlInput(!showUrlInput)} disabled={sourceLoading}
+                    style={{ flex: 1, padding: '5px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#958ea0', fontSize: '10px', cursor: 'pointer' }}>+ 網址</button>
+                  <button onClick={() => setShowTextInput(!showTextInput)} disabled={sourceLoading}
+                    style={{ flex: 1, padding: '5px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#958ea0', fontSize: '10px', cursor: 'pointer' }}>+ 文字</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Column 2: Notes */}
@@ -406,7 +661,13 @@ export default function NotebookPage() {
         <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
           {displayNotes.map(note => (
             <div key={note.id} onClick={() => selectNote(note)}
-              style={{ padding: '10px 12px', borderRadius: '6px', cursor: 'pointer', marginBottom: '4px', background: selectedNote?.id === note.id ? 'rgba(160,120,255,0.15)' : 'transparent', border: selectedNote?.id === note.id ? '1px solid rgba(160,120,255,0.2)' : '1px solid transparent' }}>
+              onMouseEnter={() => setHoveredNoteId(note.id)}
+              onMouseLeave={() => setHoveredNoteId(null)}
+              style={{ position: 'relative', padding: '10px 12px', borderRadius: '6px', cursor: 'pointer', marginBottom: '4px', background: selectedNote?.id === note.id ? 'rgba(160,120,255,0.15)' : 'transparent', border: selectedNote?.id === note.id ? '1px solid rgba(160,120,255,0.2)' : '1px solid transparent' }}>
+              {hoveredNoteId === note.id && (
+                <button onClick={e => { e.stopPropagation(); if (window.confirm(`確定要刪除「${note.title}」？此操作無法復原。`)) { deleteNote(note.id) } }}
+                  style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(239,68,68,0.8)', border: 'none', borderRadius: '4px', color: '#fff', fontSize: '11px', cursor: 'pointer', padding: '2px 6px', lineHeight: '14px', zIndex: 1 }}>✕</button>
+              )}
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
                 {note.pinned && <span style={{ fontSize: '10px' }}>📌</span>}
                 <span style={{ color: '#fff', fontSize: '13px', fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{note.title}</span>
@@ -454,12 +715,22 @@ export default function NotebookPage() {
                 style={{ padding: '4px 10px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#958ea0', fontSize: '12px', cursor: extractLoading ? 'wait' : 'pointer', opacity: extractLoading ? 0.5 : 1 }}>
                 {extractLoading ? '⏳' : '🏷️'} 提取標籤
               </button>
+              <button onClick={generateOutline} disabled={outlineLoading}
+                style={{ padding: '4px 10px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#958ea0', fontSize: '12px', cursor: outlineLoading ? 'wait' : 'pointer', opacity: outlineLoading ? 0.5 : 1 }}>
+                {outlineLoading ? '⏳' : '📋'} 大綱
+              </button>
               <button onClick={() => setShowChat(!showChat)}
                 style={{ padding: '4px 10px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.15)', background: showChat ? 'rgba(160,120,255,0.2)' : 'rgba(255,255,255,0.05)', color: '#d0bcff', fontSize: '12px', cursor: 'pointer' }}>
                 💬 對話
               </button>
               <button onClick={() => togglePin(selectedNote)} style={{ background: 'none', border: 'none', fontSize: '14px', cursor: 'pointer', opacity: selectedNote.pinned ? 1 : 0.4 }}>📌</button>
               <button onClick={() => deleteNote(selectedNote.id)} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '14px', cursor: 'pointer', opacity: 0.6 }}>🗑️</button>
+              {obsidianVault && (
+                <button onClick={toggleAutoSync}
+                  style={{ padding: '4px 10px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.15)', background: syncing ? 'rgba(160,120,255,0.2)' : autoSync ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)', color: syncing ? '#a078ff' : autoSync ? '#10b981' : '#958ea0', fontSize: '11px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  {syncing ? '⏳ 同步中...' : autoSync ? '✅ Obsidian 同步：開啟' : '🔄 Obsidian 同步：關閉'}
+                </button>
+              )}
             </div>
 
             {/* Tags bar */}
@@ -478,7 +749,7 @@ export default function NotebookPage() {
             {/* Main content area */}
             <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
               {/* Editor / Preview + Summary */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '16px', overflow: 'auto' }}>
+              <div style={{ flex: showChat ? '0 0 60%' : '1', display: 'flex', flexDirection: 'column', padding: '16px', overflow: 'auto', minWidth: 0 }}>
                 {editorMode === 'edit' ? (
                   <textarea value={editContent} onChange={e => setEditContent(e.target.value)} onBlur={saveNote} placeholder="支援 Markdown 語法..."
                     style={{ flex: 1, background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '12px', color: '#fff', fontSize: '14px', lineHeight: 1.7, resize: 'none', outline: 'none', fontFamily: "'Consolas', 'Monaco', monospace" }} />
@@ -524,9 +795,10 @@ export default function NotebookPage() {
 
               {/* Chat panel */}
               {showChat && (
-                <div style={{ width: '320px', borderLeft: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.1)', fontWeight: 600, color: '#d0bcff', fontSize: '13px' }}>
-                    💬 筆記對話
+                <div style={{ flex: '0 0 40%', borderLeft: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', background: 'rgba(10, 16, 24, 0.95)', minWidth: 0 }}>
+                  <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontWeight: 600, color: '#d0bcff', fontSize: '13px' }}>💬 筆記對話</span>
+                    <button onClick={() => setShowChat(false)} style={{ background: 'none', border: 'none', color: '#958ea0', fontSize: '14px', cursor: 'pointer', padding: '0 4px' }}>✕</button>
                   </div>
                   <div style={{ flex: 1, overflow: 'auto', padding: '12px' }}>
                     {chatMessages.length === 0 && (
