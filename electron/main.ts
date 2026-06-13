@@ -52,6 +52,8 @@ const store = new Store<{
   discordChannelId: string
   discordEnabled: boolean
 }>({
+  encryptionKey: 'agentOS-2026-secure-key',
+  name: 'settings',
   defaults: {
     installed: false,
     agents: [],
