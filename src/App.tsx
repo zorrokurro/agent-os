@@ -11,8 +11,9 @@ import OrchestratorPage from './pages/OrchestratorPage';
 import CouncilPage from './components/CouncilPage';
 import NotebookPage from './components/NotebookPage';
 import CurrentTimeButton from './components/CurrentTimeButton';
+import BrainLayout from './components/brain/BrainLayout';
 
-type PageKey = 'library' | 'memory' | 'research' | 'store' | 'ump' | 'sysagents' | 'settings' | 'orchestrator' | 'council' | 'notebook'
+type PageKey = 'brain' | 'library' | 'memory' | 'research' | 'store' | 'ump' | 'sysagents' | 'settings' | 'orchestrator' | 'council' | 'notebook'
 
 function applyDarkClass(darkMode: boolean) {
   if (darkMode) {
@@ -23,7 +24,7 @@ function applyDarkClass(darkMode: boolean) {
 }
 
 function App() {
-  const [page, setPage] = useState<PageKey>('library')
+  const [page, setPage] = useState<PageKey>('brain')
   const [showInstall, setShowInstall] = useState(false)
 
   useEffect(() => {
@@ -83,6 +84,7 @@ function App() {
           <div style={{ padding: '0 8px 8px', fontSize: '11px', fontWeight: 600, color: '#958ea0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Menu
           </div>
+          <NavButton active={page === 'brain'} onClick={() => setPage('brain')} icon="psychology" label="大腦" />
           <NavButton active={page === 'library'} onClick={() => setPage('library')} icon="inventory_2" label="收藏庫" />
           <NavButton active={page === 'memory'} onClick={() => setPage('memory')} icon="psychology" label="記憶層" />
           <NavButton active={page === 'notebook'} onClick={() => setPage('notebook')} icon="menu_book" label="Notebook" />
@@ -106,6 +108,7 @@ function App() {
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <div className="drag-region h-10 shrink-0" style={{ background: 'rgba(5, 20, 36, 0.7)', borderBottom: '1px solid rgba(255,255,255,0.05)' }} />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+          {page === 'brain' && <BrainLayout onNavigate={setPage} />}
           {page === 'library' && <LibraryPage onInstall={() => setShowInstall(true)} />}
           {page === 'memory' && <MemoryPage />}
           {page === 'notebook' && <NotebookPage />}

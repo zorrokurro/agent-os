@@ -45,10 +45,13 @@ function memoryToSource(m: UniversalMemory): Source {
 
 export async function importPDF(filePath: string, notebookId: string): Promise<Source> {
   const hub = ensureHub()
-  const pdfParse = (await import('pdf-parse')).default
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { PDFParse } = (await import('pdf-parse')) as any
   const buffer = fs.readFileSync(filePath)
-  const data = await pdfParse(buffer)
-  const content: string = data.text || ''
+  const parser = new PDFParse({ verbosity: 0 })
+  await parser.load(buffer)
+  const data = await parser.getText()
+  const content: string = (data.pages || []).map((p: any) => p.text).join('\n') || ''
   const title = path.basename(filePath, path.extname(filePath))
   const id = generateId('src')
 

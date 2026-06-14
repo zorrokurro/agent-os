@@ -120,6 +120,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   umpHubAll: () => ipcRenderer.invoke('ump-hub-all'),
   umpExchangeRegister: (agentId, name, description) => ipcRenderer.invoke('ump-exchange-register', agentId, name, description),
   umpExchangeStats: () => ipcRenderer.invoke('ump-exchange-stats'),
+  umpAddMemory: (params) => ipcRenderer.invoke('ump-add-memory', params),
 
   // UMP Conversations
   umpConversations: (agentName, limit) => ipcRenderer.invoke('ump-conversations', agentName, limit),

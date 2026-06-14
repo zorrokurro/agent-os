@@ -82,6 +82,7 @@ declare global {
       umpHubAll: () => Promise<unknown[]>
       umpExchangeRegister: (agentId: string, name: string, description: string) => Promise<unknown>
       umpExchangeStats: () => Promise<unknown>
+      umpAddMemory: (params: { content: string; memoryType?: string; tags?: string[]; group_id?: string }) => Promise<boolean>
 
       // UMP Conversations
       umpConversations: (agentName?: string, limit?: number) => Promise<Array<{ session: { id: string; agent_name: string; agent_id: string; created_at: string; updated_at: string; total_tokens: number }; messages: Array<{ id: string; session_id: string; role: string; content: string; token_count: number; created_at: string; metadata: Record<string, unknown> }> }>>

@@ -755,6 +755,20 @@ async function registerIPC() {
     catch (e) { return { error: String(e) } }
   })
 
+  ipcMain.handle('ump-add-memory', async (_, params: { content: string; memoryType?: string; tags?: string[]; group_id?: string }) => {
+    try {
+      const { createMemory } = await import('./services/ump/schemas')
+      const mem = createMemory({
+        id: crypto.randomUUID(),
+        content: params.content,
+        memory_type: (params.memoryType as 'semantic' | 'episodic' | 'procedural' | 'graph') || 'episodic',
+        tags: params.tags || [],
+        group_id: params.group_id,
+      })
+      return umpHub.addMemory(mem)
+    } catch (e) { return false }
+  })
+
   // Notebook
   const notebookService = await import('./services/notebook')
 
