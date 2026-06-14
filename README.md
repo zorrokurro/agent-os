@@ -68,10 +68,10 @@ AgentOS 內建多模型合成推理系統，作為所有任務的統一入口。
 合成草稿完成後，由 Critic 模型評估準確性、完整性、清晰度、可行性，不達標則交給 Refiner 修改，最多迭代 3 輪直到收斂。
 
 #### Orchestrator（工具調度）
-Fusion-Loop 大腦透過 DISPATCH 格式把任務分配給底層工具（OpenCode、Obsidian、Discord、其他 Agent），自己只負責決策，不執行。
+Fusion-Loop 大腦分析任務複雜度，決定是否啟用 Fusion 或 Loop，自己只負責決策，不執行。
 
 #### 技術細節
-- 本地推理：Ollama（`192.168.176.1:11434`）
+- 本地推理：Ollama（可設定，預設 `localhost:11434`）
 - 記憶寫入：UMP Hub SQLite（IPC `ump-add-memory`）
 - 前端入口：`BrainChat` → `BrainService` → `FusionLoopOrchestrator`
 
