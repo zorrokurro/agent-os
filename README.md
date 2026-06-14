@@ -57,6 +57,24 @@ SQLite 共享記憶層，讓所有 Agent 共用同一份記憶資料庫。支援
 ### 🔬 研究模式
 從新聞、學術論文、YouTube、GitHub 等多個來源同步搜尋，自動生成結構化報告。
 
+### 🧠 Fusion-Loop 大腦
+
+AgentOS 內建多模型合成推理系統，作為所有任務的統一入口。
+
+#### Fusion（橫向展開）
+同一個任務同時交給多個本地模型（qwen3:8b + gemma3:9b），由 Judge 模型分析共識、矛盾與盲點後合成最終答案，突破單一模型的視角限制。
+
+#### Self-Refinement Loop（縱向收斂）
+合成草稿完成後，由 Critic 模型評估準確性、完整性、清晰度、可行性，不達標則交給 Refiner 修改，最多迭代 3 輪直到收斂。
+
+#### Orchestrator（工具調度）
+Fusion-Loop 大腦透過 DISPATCH 格式把任務分配給底層工具（OpenCode、Obsidian、Discord、其他 Agent），自己只負責決策，不執行。
+
+#### 技術細節
+- 本地推理：Ollama（`192.168.176.1:11434`）
+- 記憶寫入：UMP Hub SQLite（IPC `ump-add-memory`）
+- 前端入口：`BrainChat` → `BrainService` → `FusionLoopOrchestrator`
+
 ---
 
 ## 安裝
