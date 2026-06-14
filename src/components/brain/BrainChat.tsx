@@ -10,12 +10,19 @@ interface Message {
   usedFusion?: boolean
 }
 
-export default function BrainChat() {
+type PageKey = 'brain' | 'library' | 'memory' | 'research' | 'store' | 'ump' | 'sysagents' | 'settings' | 'orchestrator' | 'council' | 'notebook'
+
+interface BrainChatProps {
+  onNavigate: (page: PageKey) => void
+}
+
+export default function BrainChat({ onNavigate }: BrainChatProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [useFusion, setUseFusion] = useState(true)
   const [useLoop, setUseLoop] = useState(true)
   const [loading, setLoading] = useState(false)
+  const [showLogs, setShowLogs] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -107,19 +114,52 @@ export default function BrainChat() {
           </div>
         </div>
         <div style={{ flex: 1 }} />
-        <button className="no-drag" title="日誌" style={{
-          width: 32, height: 32, borderRadius: 6, border: 'none', background: 'transparent',
-          color: '#958ea0', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        <button className="no-drag" title="日誌" onClick={() => setShowLogs(v => !v)} style={{
+          width: 32, height: 32, borderRadius: 6, border: 'none',
+          background: showLogs ? 'rgba(127,119,221,0.15)' : 'transparent',
+          color: showLogs ? '#d0bcff' : '#958ea0', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <span className="material-symbols-outlined" style={{ fontSize: 20 }}>history</span>
         </button>
-        <button className="no-drag" title="設定" style={{
+        <button className="no-drag" title="設定" onClick={() => onNavigate('settings')} style={{
           width: 32, height: 32, borderRadius: 6, border: 'none', background: 'transparent',
           color: '#958ea0', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <span className="material-symbols-outlined" style={{ fontSize: 20 }}>tune</span>
         </button>
       </div>
+
+      {/* Logs Panel */}
+      {showLogs && (
+        <div style={{
+          maxHeight: 200, overflowY: 'auto', borderBottom: '1px solid rgba(255,255,255,0.08)',
+          background: 'rgba(0,0,0,0.2)', padding: '10px 18px',
+        }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: '#958ea0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+            對話紀錄 ({messages.length})
+          </div>
+          {messages.length === 0 ? (
+            <div style={{ fontSize: 12, color: '#958ea0', padding: '8px 0' }}>尚無紀錄</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {[...messages].reverse().map(msg => (
+                <div key={msg.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11 }}>
+                  <span style={{
+                    color: msg.role === 'user' ? '#534AB7' : '#0F6E56', fontWeight: 600, flexShrink: 0, width: 40,
+                  }}>
+                    {msg.role === 'user' ? 'User' : 'Brain'}
+                  </span>
+                  <span style={{ color: '#cbd5e1', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {msg.content}
+                  </span>
+                  <span style={{ color: '#64748b', flexShrink: 0 }}>{fmtTime(msg.timestamp)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Messages */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -183,7 +223,7 @@ export default function BrainChat() {
           {[
             { label: 'Fusion', active: useFusion, onClick: () => setUseFusion(v => !v) },
             { label: 'Loop', active: useLoop, onClick: () => setUseLoop(v => !v) },
-            { label: '研究', active: false, onClick: () => {} },
+            { label: '研究', active: false, onClick: () => onNavigate('research') },
           ].map(btn => (
             <button key={btn.label} className="no-drag" onClick={btn.onClick} style={{
               fontSize: 11, padding: '3px 10px', borderRadius: 12, cursor: 'pointer',

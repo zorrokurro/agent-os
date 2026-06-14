@@ -9,7 +9,7 @@ export default function BrainLayout({ onNavigate }: BrainLayoutProps) {
   return (
     <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <BrainChat />
+        <BrainChat onNavigate={onNavigate} />
       </div>
       <div style={{ width: 200, flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
         <AgentPanel />
