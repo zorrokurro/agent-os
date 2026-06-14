@@ -15,13 +15,15 @@
   "win": {
     "target": [
       {
-        "target": "portable",
+        "target": "nsis",
         "arch": ["x64"]
       }
     ]
   },
-  "portable": {
-    "artifactName": "AgentOS.exe"
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "artifactName": "AgentOS-${version}-Setup.${ext}"
   },
   "buildNumber": 1
 }
