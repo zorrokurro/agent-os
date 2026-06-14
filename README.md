@@ -59,6 +59,8 @@ SQLite 共享記憶層，讓所有 Agent 共用同一份記憶資料庫。支援
 
 ### 🧠 Fusion-Loop 大腦
 
+![Fusion-Loop 大腦](docs/screenshots/fusion-loop-brain.webp)
+
 AgentOS 內建多模型合成推理系統，作為所有任務的統一入口。
 
 #### Fusion（橫向展開）
