@@ -342,7 +342,7 @@ function SettingsPage() {
                 <div style={{ fontSize: '14px', color: '#d4e4fa', marginBottom: 8 }}>Vault 路徑</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <input type="text" value={settings.obsidianVault} onChange={e => updateSetting('obsidianVault', e.target.value)}
-                    style={{ width: '100%', maxWidth: '400px' }} placeholder="C:\Users\layja\obsidian"
+                    style={{ width: '100%', maxWidth: '400px' }}                     placeholder="C:\Users\你的帳號\obsidian"
                   />
                   <button
                     className="btn-primary"

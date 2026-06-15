@@ -1,6 +1,6 @@
 {
   "name": "agent-harness",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Agent Harness -底层框架 for AI Agent development",
   "author": "Agent Harness Team",
   "main": "dist-electron/main.js",
@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@rollup/rollup-linux-x64-gnu": "^4.60.4",
-    "@types/better-sqlite3": "^7.6.13",
     "@types/sql.js": "^1.4.11",
     "chokidar": "^3.5.3",
     "discord.js": "^14.26.4",

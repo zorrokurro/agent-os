@@ -10,12 +10,12 @@ export interface ModelConfig {
 }
 
 const DEFAULTS: ModelConfig = {
-  panelA:  'qwen3:8b',
-  panelB:  'gemma3:9b',
-  judge:   'qwen3:8b',
-  critic:  'qwen3:8b',
-  refiner: 'qwen3:8b',
-  hermes:  'qwen3:8b',
+  panelA:  'qwen2.5:14b',
+  panelB:  'deepseek-r1:14b',
+  judge:   'qwen2.5:14b',
+  critic:  'llama3.1:8b',
+  refiner: 'qwen2.5:14b',
+  hermes:  'qwen2.5:14b',
 }
 
 export function useModelConfig() {

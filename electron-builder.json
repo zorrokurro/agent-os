@@ -10,7 +10,8 @@
     "dist-renderer",
     "public",
     "agents-registry.json",
-    "agents"
+    "agents",
+    "node_modules/sql.js/**/*"
   ],
   "win": {
     "target": [
