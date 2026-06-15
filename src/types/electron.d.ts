@@ -31,6 +31,8 @@ declare global {
       installOllama: () => Promise<{ success: boolean; error?: string }>
       pullModel: (model: string) => Promise<{ success: boolean; error?: string }>
       listModels: () => Promise<string[]>
+      getModelConfig: () => Promise<Record<string, string>>
+      setModelConfig: (config: Record<string, string>) => Promise<boolean>
       chat: (model: string, messages: Array<{ role: string; content: string }>) => Promise<string>
       chatStream: (model: string, messages: Array<{ role: string; content: string }>) => Promise<{ success: boolean; reply?: string; error?: string }>
       getAgents: () => Promise<AgentInfo[]>

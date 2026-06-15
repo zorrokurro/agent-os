@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { sendToBrain } from '../../core/BrainService'
+import { useModelConfig } from '../../hooks/useModelConfig'
+import ModelSelector from './ModelSelector'
 
 interface Message {
   id: string
@@ -23,6 +25,8 @@ export default function BrainChat({ onNavigate }: BrainChatProps) {
   const [useLoop, setUseLoop] = useState(true)
   const [loading, setLoading] = useState(false)
   const [showLogs, setShowLogs] = useState(false)
+  const [showModelSelector, setShowModelSelector] = useState(false)
+  const { config, models, loading: configLoading, saveConfig } = useModelConfig()
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -48,7 +52,7 @@ export default function BrainChat({ onNavigate }: BrainChatProps) {
     setLoading(true)
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
     try {
-      const res = await sendToBrain({ prompt: userMsg.content, useFusion, useLoop })
+      const res = await sendToBrain({ prompt: userMsg.content, useFusion, useLoop, modelConfig: config })
       setMessages(prev => [...prev, {
         id: crypto.randomUUID(),
         role: 'brain',
@@ -122,12 +126,22 @@ export default function BrainChat({ onNavigate }: BrainChatProps) {
         }}>
           <span className="material-symbols-outlined" style={{ fontSize: 20 }}>history</span>
         </button>
-        <button className="no-drag" title="設定" onClick={() => onNavigate('settings')} style={{
-          width: 32, height: 32, borderRadius: 6, border: 'none', background: 'transparent',
-          color: '#958ea0', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <span className="material-symbols-outlined" style={{ fontSize: 20 }}>tune</span>
-        </button>
+        <div style={{ position: 'relative' }}>
+          <button className="no-drag" title="模型設定" onClick={() => setShowModelSelector(v => !v)} style={{
+            width: 32, height: 32, borderRadius: 6, border: 'none', background: 'transparent',
+            color: '#958ea0', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>tune</span>
+          </button>
+          {showModelSelector && (
+            <ModelSelector
+              config={config}
+              models={models}
+              onSave={(newConfig) => { saveConfig(newConfig); setShowModelSelector(false) }}
+              onClose={() => setShowModelSelector(false)}
+            />
+          )}
+        </div>
       </div>
 
       {/* Logs Panel */}

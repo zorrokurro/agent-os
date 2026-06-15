@@ -25,6 +25,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   installOllama: () => ipcRenderer.invoke('install-ollama'),
   pullModel: (model) => ipcRenderer.invoke('pull-model', model),
   listModels: () => ipcRenderer.invoke('list-models'),
+  getModelConfig: () => ipcRenderer.invoke('get-model-config'),
+  setModelConfig: (config) => ipcRenderer.invoke('set-model-config', config),
   chat: (model, messages) => ipcRenderer.invoke('chat', model, messages),
   chatStream: (model, messages) => ipcRenderer.invoke('chat-stream', model, messages),
 

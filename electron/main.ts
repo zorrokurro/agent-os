@@ -190,7 +190,24 @@ async function registerIPC() {
   })
 
   ipcMain.handle('list-models', async () => {
-    return await listModels()
+    const baseUrl = store.get('ollamaUrl') as string | undefined
+    return await listModels(baseUrl)
+  })
+
+  ipcMain.handle('get-model-config', () => {
+    return store.get('modelConfig', {
+      panelA:  '',
+      panelB:  '',
+      judge:   '',
+      critic:  '',
+      refiner: '',
+      hermes:  ''
+    })
+  })
+
+  ipcMain.handle('set-model-config', (_e, config: Record<string, string>) => {
+    store.set('modelConfig', config)
+    return true
   })
 
   ipcMain.handle('chat', async (_, model: string, messages: Array<{ role: string; content: string }>) => {

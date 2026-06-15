@@ -147,11 +147,12 @@ export async function pullModel(
   }
 }
 
-export async function listModels(): Promise<string[]> {
+export async function listModels(baseUrl?: string): Promise<string[]> {
+  const url = baseUrl || DEFAULT_OLLAMA_URL
   try {
-    const { stdout } = await execAsync('ollama list', { timeout: 10000 })
-    const lines = stdout.trim().split('\n').slice(1) // skip header
-    return lines.map(l => l.split(/\s+/)[0]).filter(Boolean)
+    const res = await fetch(`${url}/api/tags`)
+    const data = await res.json()
+    return (data.models ?? []).map((m: { name: string }) => m.name).filter(Boolean)
   } catch {
     return []
   }
