@@ -1,6 +1,23 @@
 import { useEffect, useState } from 'react'
 import type { HardwareInfo, InstallOptions, InstallProgress, ModelProvider, ProviderModel } from '../types'
 
+interface AgentInfo {
+  id: string
+  name: string
+  description: string
+  icon?: string
+  installed: boolean
+}
+
+interface GithubAnalysis {
+  name: string
+  description: string
+  stack: string
+  installCommands: string[]
+}
+
+const STEPS = ['硬體偵測', '選擇 Agent', '模式設定', '安裝']
+
 function InstallPage({ onComplete, onClose }: { onComplete: () => void; onClose: () => void }) {
   const [hardware, setHardware] = useState<HardwareInfo | null>(null)
   const [providers, setProviders] = useState<ModelProvider[]>([])
@@ -14,11 +31,66 @@ function InstallPage({ onComplete, onClose }: { onComplete: () => void; onClose:
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
   const [loadingProviders, setLoadingProviders] = useState(false)
+  const [currentStep, setCurrentStep] = useState(0)
+  const [availableAgents, setAvailableAgents] = useState<AgentInfo[]>([])
+  const [selectedAgents, setSelectedAgents] = useState<string[]>(['hermes'])
+  const [githubUrl, setGithubUrl] = useState('')
+  const [githubAnalysis, setGithubAnalysis] = useState<GithubAnalysis | null>(null)
+  const [githubLoading, setGithubLoading] = useState(false)
+  const [githubInstalling, setGithubInstalling] = useState(false)
+  const [githubLogs, setGithubLogs] = useState<string[]>([])
+
+  const loadAvailableAgents = async () => {
+    try {
+      const agents = await window.electronAPI.getAgents()
+      setAvailableAgents(agents)
+    } catch {
+      setAvailableAgents([{ id: 'hermes', name: 'Hermes', description: 'AI Agent 管理平台核心', installed: false }])
+    }
+  }
+
+  const handleAnalyze = async () => {
+    if (!githubUrl.trim()) return
+    setGithubLoading(true)
+    setGithubAnalysis(null)
+    try {
+      const result = await window.electronAPI.githubAnalyze(githubUrl.trim())
+      setGithubAnalysis(result)
+    } catch (e) {
+      setGithubLogs([`分析失敗：${e}`])
+    } finally {
+      setGithubLoading(false)
+    }
+  }
+
+  const handleGithubInstall = async () => {
+    if (!githubUrl.trim()) return
+    setGithubInstalling(true)
+    setGithubLogs([])
+    try {
+      await window.electronAPI.githubInstall(githubUrl.trim(), (line: string) => {
+        setGithubLogs(prev => [...prev, line])
+      })
+      setGithubLogs(prev => [...prev, '✓ 安裝完成'])
+      loadAvailableAgents()
+    } catch (e) {
+      setGithubLogs(prev => [...prev, `✗ 安裝失敗：${e}`])
+    } finally {
+      setGithubInstalling(false)
+    }
+  }
 
   useEffect(() => {
-    window.electronAPI.getHardwareInfo().then(setHardware)
+    window.electronAPI.getHardwareInfo().then((h) => {
+      setHardware(h)
+      if (h) setCurrentStep(1)
+    })
     const cleanup = window.electronAPI.onInstallProgress((data) => { setProgress(data) })
     return () => cleanup()
+  }, [])
+
+  useEffect(() => {
+    loadAvailableAgents()
   }, [])
 
   useEffect(() => {
@@ -44,8 +116,22 @@ function InstallPage({ onComplete, onClose }: { onComplete: () => void; onClose:
     setOptions(o => ({ ...o, providerId: providerId as InstallOptions['providerId'], modelId: defaultModel }))
   }
 
+  const toggleAgent = (agentId: string) => {
+    setSelectedAgents(prev => {
+      const next = prev.includes(agentId) ? prev.filter(a => a !== agentId) : [...prev, agentId]
+      setOptions(o => ({ ...o, agents: next }))
+      return next
+    })
+  }
+
+  useEffect(() => {
+    if (selectedAgents.length > 0 && currentStep === 1) {
+      setCurrentStep(2)
+    }
+  }, [selectedAgents, currentStep])
+
   const startInstall = async () => {
-    setInstalling(true); setError('')
+    setInstalling(true); setError(''); setCurrentStep(3)
     try {
       const result = await window.electronAPI.runInstallation(options)
       if (result.success) { setDone(true) } else { setError(result.error || '安裝失敗') }
@@ -83,6 +169,79 @@ function InstallPage({ onComplete, onClose }: { onComplete: () => void; onClose:
         </div>
         <h1 className="text-xl font-bold text-white mt-2">安裝 Agent</h1>
         <p className="text-sm mt-1" style={{ color: '#958ea0' }}>回答幾個問題，我們將自動完成所有設定</p>
+      </div>
+
+      {/* GitHub 匯入區塊 */}
+      <div style={{ padding: '16px 24px', borderBottom: '0.5px solid rgba(255,255,255,0.1)' }}>
+        <div style={{ fontSize: 12, fontWeight: 500, color: '#958ea0', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.04em' }}>
+          從 GitHub 匯入 Agent
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            value={githubUrl}
+            onChange={e => setGithubUrl(e.target.value)}
+            placeholder="https://github.com/username/repo"
+            style={{ flex: 1, padding: '8px 12px', borderRadius: 6, border: '0.5px solid rgba(255,255,255,0.1)', background: '#0d1c2d', color: '#d4e4fa', fontSize: 13 }}
+          />
+          <button
+            onClick={handleAnalyze}
+            disabled={!githubUrl.trim() || githubLoading}
+            style={{ padding: '8px 16px', borderRadius: 6, background: '#7F77DD', border: 'none', color: '#fff', fontSize: 13, cursor: 'pointer', opacity: githubLoading ? 0.6 : 1 }}
+          >
+            {githubLoading ? '分析中...' : '分析'}
+          </button>
+        </div>
+
+        {githubAnalysis && (
+          <div style={{ marginTop: 12, padding: 12, background: '#0d1c2d', borderRadius: 6, border: '0.5px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 500, color: '#d4e4fa' }}>{githubAnalysis.name}</span>
+              <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 20, background: '#EEEDFE', color: '#534AB7' }}>
+                {githubAnalysis.stack}
+              </span>
+            </div>
+            <div style={{ fontSize: 12, color: '#958ea0', marginBottom: 10, lineHeight: 1.5 }}>
+              {githubAnalysis.description}
+            </div>
+            <button
+              onClick={handleGithubInstall}
+              disabled={githubInstalling}
+              style={{ padding: '7px 16px', borderRadius: 6, background: '#7F77DD', border: 'none', color: '#fff', fontSize: 12, cursor: 'pointer' }}
+            >
+              {githubInstalling ? '安裝中...' : '安裝此 Agent'}
+            </button>
+          </div>
+        )}
+
+        {githubLogs.length > 0 && (
+          <div style={{ marginTop: 8, padding: '8px 10px', background: '#0a0a0a', borderRadius: 6, fontFamily: 'monospace', fontSize: 11, color: '#aaa', maxHeight: 120, overflowY: 'auto' }}>
+            {githubLogs.map((log, i) => <div key={i}>{log}</div>)}
+          </div>
+        )}
+      </div>
+
+      {/* Step Indicator */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 0, padding: '16px 24px', borderBottom: '0.5px solid rgba(255,255,255,0.1)' }}>
+        {STEPS.map((label, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', flex: i < STEPS.length - 1 ? 1 : undefined }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%',
+                background: currentStep > i ? '#7F77DD' : currentStep === i ? '#EEEDFE' : '#0d1c2d',
+                border: `0.5px solid ${currentStep >= i ? '#7F77DD' : 'rgba(255,255,255,0.1)'}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 12, fontWeight: 500,
+                color: currentStep > i ? '#fff' : currentStep === i ? '#534AB7' : '#958ea0'
+              }}>
+                {currentStep > i ? '✓' : i + 1}
+              </div>
+              <span style={{ fontSize: 10, color: currentStep === i ? '#534AB7' : '#958ea0' }}>{label}</span>
+            </div>
+            {i < STEPS.length - 1 && (
+              <div style={{ flex: 1, height: '0.5px', background: currentStep > i ? '#7F77DD' : 'rgba(255,255,255,0.1)', margin: '0 8px', marginBottom: 16 }} />
+            )}
+          </div>
+        ))}
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '20px', minHeight: 0 }} className="space-y-5">
@@ -144,18 +303,31 @@ function InstallPage({ onComplete, onClose }: { onComplete: () => void; onClose:
         {/* Agent 選擇 */}
         <div className="card">
           <h2 className="text-sm font-semibold mb-3" style={{ color: '#d4e4fa' }}>🤖 選擇要安裝的 Agent</h2>
-          <label className="flex items-center gap-3 p-3 rounded cursor-pointer transition"
-            style={{ background: '#0d1c2d', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <input type="checkbox" checked={options.agents.includes('hermes')}
-              onChange={(e) => {
-                if (e.target.checked) setOptions(o => ({ ...o, agents: [...o.agents, 'hermes'] }))
-                else setOptions(o => ({ ...o, agents: o.agents.filter(a => a !== 'hermes') }))
-              }} className="w-4 h-4" />
-            <div>
-              <div style={{ color: '#d4e4fa' }} className="font-medium">Hermes Agent ⚡</div>
-              <div className="text-xs" style={{ color: '#958ea0' }}>AI Agent 管理平台核心 — 任務委派、工具調用、記憶管理</div>
-            </div>
-          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {availableAgents.map(agent => (
+              <div
+                key={agent.id}
+                onClick={() => toggleAgent(agent.id)}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 6,
+                  border: `0.5px solid ${selectedAgents.includes(agent.id) ? '#7F77DD' : 'rgba(255,255,255,0.1)'}`,
+                  background: selectedAgents.includes(agent.id) ? '#EEEDFE' : '#0d1c2d',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ fontSize: 13, fontWeight: 500, color: selectedAgents.includes(agent.id) ? '#534AB7' : '#d4e4fa' }}>
+                  {agent.icon || '🤖'} {agent.name}
+                </div>
+                <div style={{ fontSize: 11, color: '#958ea0', marginTop: 2 }}>
+                  {agent.description}
+                </div>
+                {agent.installed && (
+                  <span style={{ fontSize: 10, color: '#0F6E56', marginTop: 4, display: 'block' }}>✓ 已安裝</span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* 運行模式 */}
@@ -275,7 +447,7 @@ function InstallPage({ onComplete, onClose }: { onComplete: () => void; onClose:
           </div>
         ) : (
           <div className="flex justify-end">
-            <button className="btn-primary" onClick={startInstall} disabled={options.agents.length === 0}>開始安裝</button>
+            <button className="btn-primary" onClick={startInstall} disabled={selectedAgents.length === 0}>開始安裝</button>
           </div>
         )}
       </div>

@@ -355,65 +355,11 @@ async function registerIPC() {
   // === GitHub Import ===
   ipcMain.handle('import-agent-from-github', async (_, url: string) => {
     try {
-      // 解析 GitHub URL
-      // 支援格式：https://github.com/user/repo 或 https://github.com/user/repo/tree/branch/path
-      const match = url.match(/github\.com\/([^/]+)\/([^/]+)(?:\/tree\/[^/]+\/(.+))?/)
-      if (!match) {
-        return { success: false, message: '無效的 GitHub URL' }
-      }
-      const [, owner, repo, subPath] = match
-
-      // 使用 git clone 到暫存目錄
-      const tmpDir = path.join(os.tmpdir(), 'agentos-import-' + Date.now())
-      const cloneUrl = `https://github.com/${owner}/${repo}.git`
-
-      console.log(`[GitHub Import] 正在 clone: ${cloneUrl}`)
-      // 用 spawn 代替 execSync 避免阻塞主行程
-      await new Promise<void>((resolve, reject) => {
-        const proc = spawn('git', ['clone', '--depth', '1', cloneUrl, tmpDir], { stdio: 'pipe', timeout: 60000 })
-        proc.on('close', (code) => {
-          if (code === 0) resolve()
-          else reject(new Error(`git clone 退出碼: ${code}`))
-        })
-        proc.on('error', reject)
-      })
-
-      // 尋找 manifest.json
-      const searchDir = subPath ? path.join(tmpDir, subPath) : tmpDir
-      const manifestPath = path.join(searchDir, 'manifest.json')
-
-      if (!fs.existsSync(manifestPath)) {
-        fs.rmSync(tmpDir, { recursive: true, force: true })
-        return { success: false, message: '找不到 manifest.json，請確認 repo 根目錄有 manifest.json' }
-      }
-
-      // 讀取並驗證 manifest
-      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
-      if (!manifest.id || !manifest.name || !manifest.version) {
-        fs.rmSync(tmpDir, { recursive: true, force: true })
-        return { success: false, message: 'manifest.json 缺少必要欄位（id, name, version）' }
-      }
-      if (!/^[a-zA-Z0-9_-]+$/.test(manifest.id)) {
-        fs.rmSync(tmpDir, { recursive: true, force: true })
-        return { success: false, message: 'manifest.id 含非法字元' }
-      }
-
-      // 複製到 agents 目錄
-      const agentsBaseDir = path.join(os.homedir(), 'AgentOS', 'agents')
-      const targetDir = path.join(agentsBaseDir, manifest.id)
-      if (fs.existsSync(targetDir)) {
-        fs.rmSync(targetDir, { recursive: true, force: true })
-      }
-      fs.cpSync(searchDir, targetDir, { recursive: true })
-
-      // 清理暫存
-      fs.rmSync(tmpDir, { recursive: true, force: true })
-
-      // 重新載入 agent manager
-      agentMgr.loadAgents()
-
-      console.log(`[GitHub Import] 成功匯入: ${manifest.name} v${manifest.version}`)
-      return { success: true, message: `✅ 成功匯入 ${manifest.name} v${manifest.version}` }
+      const { installRepo } = await import('./services/installer-github')
+      const result = await installRepo(url, (line: string) => {
+        console.log(`[GitHub Import] ${line}`)
+      }, { requireManifest: true })
+      return { success: result.success, message: result.success ? `✅ 成功匯入 agent` : result.error }
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error)
       console.log(`[GitHub Import] 失敗: ${msg}`)

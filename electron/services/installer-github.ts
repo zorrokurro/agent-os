@@ -140,12 +140,17 @@ function runCommand(
   })
 }
 
+export interface InstallOptions {
+  requireManifest?: boolean
+}
+
 /**
  * Install a GitHub repo: clone, detect stack, and run install commands.
  */
 export async function installRepo(
   url: string,
   onLog: (line: string) => void,
+  options?: InstallOptions,
 ): Promise<InstallResult> {
   const parsed = parseGitHubUrl(url)
   if (!parsed) return { success: false, path: '', error: '無效的 GitHub URL' }
@@ -172,32 +177,60 @@ export async function installRepo(
     await runCommand('git', ['clone', '--depth', '1', cloneUrl, targetDir], agentsDir, onLog)
     onLog(`✅ Clone 完成: ${targetDir}`)
 
+    let installDir = targetDir
+
+    // Step 1.5: Validate manifest if required
+    if (options?.requireManifest) {
+      const manifestPath = path.join(targetDir, 'manifest.json')
+      if (!fs.existsSync(manifestPath)) {
+        fs.rmSync(targetDir, { recursive: true, force: true })
+        return { success: false, path: targetDir, error: '找不到 manifest.json，請確認 repo 根目錄有 manifest.json' }
+      }
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+      if (!manifest.id || !manifest.name || !manifest.version) {
+        fs.rmSync(targetDir, { recursive: true, force: true })
+        return { success: false, path: targetDir, error: 'manifest.json 缺少必要欄位（id, name, version）' }
+      }
+      if (!/^[a-zA-Z0-9_-]+$/.test(manifest.id)) {
+        fs.rmSync(targetDir, { recursive: true, force: true })
+        return { success: false, path: targetDir, error: 'manifest.id 含非法字元' }
+      }
+      // Rename target dir to use manifest.id
+      const finalDir = path.join(agentsDir, manifest.id)
+      if (fs.existsSync(finalDir)) {
+        fs.rmSync(finalDir, { recursive: true, force: true })
+      }
+      fs.renameSync(targetDir, finalDir)
+      installDir = finalDir
+      onLog(`✅ Manifest 驗證通過: ${manifest.name} v${manifest.version}`)
+    }
+
     // Step 2: Detect stack and install
-    const files = fs.readdirSync(targetDir)
+    const files = fs.readdirSync(installDir)
     const stack = detectStack(files)
 
     if (stack === 'node') {
       if (files.includes('package.json')) {
         onLog('📦 偵測到 Node.js 專案，執行 npm install...')
-        await runCommand('npm', ['install'], targetDir, onLog)
+        await runCommand('npm', ['install'], installDir, onLog)
         onLog('✅ npm install 完成')
       }
     } else if (stack === 'python') {
       if (files.includes('requirements.txt')) {
         onLog('🐍 偵測到 Python 專案，執行 pip install...')
-        await runCommand('pip', ['install', '-r', 'requirements.txt'], targetDir, onLog)
+        await runCommand('pip', ['install', '-r', 'requirements.txt'], installDir, onLog)
         onLog('✅ pip install 完成')
       } else if (files.includes('setup.py')) {
         onLog('🐍 偵測到 Python 專案，執行 python setup.py install...')
-        await runCommand('python', ['setup.py', 'install'], targetDir, onLog)
+        await runCommand('python', ['setup.py', 'install'], installDir, onLog)
         onLog('✅ setup.py install 完成')
       }
     } else {
       onLog('ℹ️ 未偵測到已知技術棧，略過安裝步驟')
     }
 
-    onLog(`🎉 安裝完成！路徑: ${targetDir}`)
-    return { success: true, path: targetDir }
+    onLog(`🎉 安裝完成！路徑: ${installDir}`)
+    return { success: true, path: installDir }
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     onLog(`❌ 安裝失敗: ${msg}`)
