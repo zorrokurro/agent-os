@@ -18,6 +18,11 @@ const DEFAULTS: ModelConfig = {
   hermes:  'qwen2.5:14b',
 }
 
+export function formatModelLabel(model: string): string {
+  if (model.startsWith('api:')) return `[API] ${model.slice(4)}`
+  return `[本地] ${model}`
+}
+
 export function useModelConfig() {
   const [config, setConfigState] = useState<ModelConfig>(DEFAULTS)
   const [models, setModels] = useState<string[]>([])
@@ -25,11 +30,12 @@ export function useModelConfig() {
 
   useEffect(() => {
     async function init() {
-      const [saved, available] = await Promise.all([
+      const [saved, ollamaModels, apiModels] = await Promise.all([
         window.electronAPI.getModelConfig(),
-        window.electronAPI.listModels()
+        window.electronAPI.listModels(),
+        window.electronAPI.listApiModels().catch(() => []),
       ])
-      setModels(available)
+      setModels([...ollamaModels, ...apiModels])
       setConfigState({
         panelA:  saved.panelA  || DEFAULTS.panelA,
         panelB:  saved.panelB  || DEFAULTS.panelB,

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { AgentInfo } from '../types'
+import { formatModelLabel } from '../hooks/useModelConfig'
 
 // ---------------------------------------------------------------------------
 // 左側列表的 filter 模式
@@ -344,9 +345,13 @@ function ControlsTab({ agent, agentStatus, onToggleAgent, onTabChange }: { agent
   const [selectedModel, setSelectedModel] = useState('')
 
   useEffect(() => {
-    window.electronAPI.listModels().then(m => {
-      setModels(m)
-      if (m.length > 0 && !selectedModel) setSelectedModel(m[0])
+    Promise.all([
+      window.electronAPI.listModels(),
+      window.electronAPI.listApiModels().catch(() => []),
+    ]).then(([ollama, api]) => {
+      const all = [...ollama, ...api]
+      setModels(all)
+      if (all.length > 0 && !selectedModel) setSelectedModel(all[0])
     })
   }, [])
 
@@ -476,7 +481,7 @@ function ControlsTab({ agent, agentStatus, onToggleAgent, onTabChange }: { agent
         {models.length > 1 && (
           <select value={selectedModel} onChange={e => setSelectedModel(e.target.value)}
             style={{ padding: '10px 12px', borderRadius: '0.25rem', fontSize: '13px', background: '#0d1c2d', border: '1px solid rgba(255,255,255,0.1)', color: '#d4e4fa', minWidth: 160 }}>
-            {models.map(m => <option key={m} value={m}>{m}</option>)}
+            {models.map(m => <option key={m} value={m}>{formatModelLabel(m)}</option>)}
           </select>
         )}
         <input type="text" value={input} onChange={e => setInput(e.target.value)}
@@ -529,7 +534,12 @@ function LogsTab({ agentId }: { agentId: string }) {
 
 function ConfigTab({ agent }: { agent: AgentInfo }) {
   const [models, setModels] = useState<string[]>([])
-  useEffect(() => { window.electronAPI.listModels().then(setModels) }, [])
+  useEffect(() => {
+    Promise.all([
+      window.electronAPI.listModels(),
+      window.electronAPI.listApiModels().catch(() => []),
+    ]).then(([ollama, api]) => setModels([...ollama, ...api]))
+  }, [])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -541,7 +551,7 @@ function ConfigTab({ agent }: { agent: AgentInfo }) {
         <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#d4e4fa', marginBottom: 12 }}>已安裝模型</h3>
         {models.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '14px' }}>
-            {models.map(m => <div key={m} style={{ color: '#d4e4fa', fontFamily: 'JetBrains Mono, monospace' }}>{m}</div>)}
+            {models.map(m => <div key={m} style={{ color: '#d4e4fa', fontFamily: 'JetBrains Mono, monospace' }}>{formatModelLabel(m)}</div>)}
           </div>
         ) : (
           <div style={{ fontSize: '14px', color: '#494454' }}>尚未安裝任何模型</div>

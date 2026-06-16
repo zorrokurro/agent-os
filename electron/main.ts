@@ -6,6 +6,7 @@ import os from 'os'
 import { detectHardware } from './services/hardware'
 import { getAgentManager } from './services/agent-manager'
 import { checkOllama, installOllama, pullModel, listModels, startOllamaServe, chat } from './services/ollama'
+import { aiChat, listApiModels } from './services/aiRouter'
 import { runFullInstallation, InstallOptions } from './services/installer'
 import { stabilityService } from './services/stability'
 import { autoUpdateService } from './services/auto-updater'
@@ -45,6 +46,8 @@ const store = new Store<{
   theme: 'dark' | 'light' | 'system'
   ollamaUrl: string
   checkInterval: number
+  apiProvider: string
+  apiModel: string
   autoUpdate: boolean
   language: string
   memoryPath: string
@@ -68,6 +71,8 @@ const store = new Store<{
     theme: 'dark',
     ollamaUrl: 'http://localhost:11434',
     checkInterval: 30,
+    apiProvider: 'openrouter',
+    apiModel: 'openai/gpt-4o-mini',
     autoUpdate: true,
     language: 'zh-TW',
     memoryPath: 'C:\\AgentOS\\Memory',
@@ -227,6 +232,21 @@ async function registerIPC() {
       sender.send('chat-error', msg)
       return { success: false, error: msg }
     }
+  })
+
+  ipcMain.handle('ai-chat', async (_e, { model, messages, baseUrl }: { model: string; messages: Array<{ role: string; content: string }>; baseUrl?: string }) => {
+    return await aiChat(model, messages, {
+      ollamaUrl: baseUrl || store.get('ollamaUrl'),
+      apiProvider: store.get('apiProvider'),
+      apiKey: store.get('apiKey'),
+    })
+  })
+
+  ipcMain.handle('list-api-models', async () => {
+    return await listApiModels(
+      store.get('apiProvider') as string,
+      store.get('apiKey') as string
+    )
   })
 
   // === Agent Management (new Docker-based) ===
@@ -460,6 +480,23 @@ async function registerIPC() {
     if (typeof settings.checkInterval === 'number' && settings.checkInterval >= 10) {
       stabilityService.setCheckInterval(settings.checkInterval)
     }
+  })
+
+  ipcMain.handle('get-full-settings', () => {
+    return {
+      ollamaUrl:   store.get('ollamaUrl',   'http://localhost:11434'),
+      apiProvider: store.get('apiProvider', 'openrouter'),
+      apiKey:      store.get('apiKey',      ''),
+      apiModel:    store.get('apiModel',    'openai/gpt-4o-mini'),
+    }
+  })
+
+  ipcMain.handle('set-full-settings', (_e, s: Record<string, string>) => {
+    if (s.ollamaUrl   !== undefined) store.set('ollamaUrl',   s.ollamaUrl)
+    if (s.apiProvider !== undefined) store.set('apiProvider', s.apiProvider)
+    if (s.apiKey      !== undefined) store.set('apiKey',      s.apiKey)
+    if (s.apiModel    !== undefined) store.set('apiModel',    s.apiModel)
+    return true
   })
 
   // === Auto Update ===

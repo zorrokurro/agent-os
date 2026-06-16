@@ -13,9 +13,7 @@ interface ChatMessage {
 }
 
 interface Settings {
-  apiKey: string
   modelId: string
-  providerId: string
 }
 
 const mdStyles: Record<string, React.CSSProperties> = {
@@ -73,7 +71,7 @@ export default function NotebookPage() {
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   // AI feature states
-  const [settings, setSettings] = useState<Settings>({ apiKey: '', modelId: '', providerId: 'ollama' })
+  const [settings, setSettings] = useState<Settings>({ modelId: '' })
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [extractLoading, setExtractLoading] = useState(false)
   const [outlineLoading, setOutlineLoading] = useState(false)
@@ -116,9 +114,7 @@ export default function NotebookPage() {
       const s = await window.electronAPI.getSettings()
       if (s) {
         setSettings({
-          apiKey: (s.apiKey as string) || '',
-          modelId: (s.modelId as string) || '',
-          providerId: (s.providerId as string) || 'ollama',
+          modelId: (s.apiModel as string) || (s.modelId as string) || '',
         })
         setObsidianVault((s.obsidianVault as string) || '')
       }
@@ -234,10 +230,9 @@ export default function NotebookPage() {
     setChatLoading(true)
 
     try {
-      const apiKey = settings.apiKey
       const model = settings.modelId
-      if (!apiKey || !model) {
-        throw new Error('請先到設定頁面設定 API Key 和模型')
+      if (!model) {
+        throw new Error('請先到設定頁面設定模型')
       }
       const context = `以下是筆記內容（標題：${selectedNote.title}）：\n\n${selectedNote.content || '（空白筆記）'}`
       const systemPrompt = '你是一個筆記助理。根據用戶提供的筆記內容回答問題。如果筆記內容不足以回答，誠實說明。回答請用繁體中文。'
@@ -246,7 +241,7 @@ export default function NotebookPage() {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ]
-      const reply = await window.electronAPI.openrouterChat(apiKey, model, messages)
+      const reply = await window.electronAPI.aiChat({ model, messages })
       const answer = reply || '無法取得回覆'
       setChatMessages(prev => [...prev, { role: 'assistant', content: answer }])
 
@@ -271,10 +266,9 @@ export default function NotebookPage() {
     setSummaryLoading(true)
     setChatMessages(prev => [...prev, { role: 'user', content: '摘要全文', type: 'chat' }])
     try {
-      const apiKey = settings.apiKey
       const model = settings.modelId
-      if (!apiKey || !model) {
-        throw new Error('請先到設定頁面設定 API Key 和模型')
+      if (!model) {
+        throw new Error('請先到設定頁面設定模型')
       }
       const noteContent = selectedNote.content || '（空白筆記）'
       const systemPrompt = '你是一個知識助手。請根據提供的筆記內容生成簡潔的摘要，保留關鍵要點。用繁體中文回答。'
@@ -283,7 +277,7 @@ export default function NotebookPage() {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ]
-      const reply = await window.electronAPI.openrouterChat(apiKey, model, messages)
+      const reply = await window.electronAPI.aiChat({ model, messages })
       if (reply) {
         setChatMessages(prev => [...prev, { role: 'assistant', content: reply, type: 'summary' }])
       }
@@ -299,10 +293,9 @@ export default function NotebookPage() {
     setExtractLoading(true)
     setChatMessages(prev => [...prev, { role: 'user', content: '提取標籤', type: 'chat' }])
     try {
-      const apiKey = settings.apiKey
       const model = settings.modelId
-      if (!apiKey || !model) {
-        throw new Error('請先到設定頁面設定 API Key 和模型')
+      if (!model) {
+        throw new Error('請先到設定頁面設定模型')
       }
       const noteContent = selectedNote.content || '（空白筆記）'
       const systemPrompt = '你是一個標籤提取助手。從筆記內容中提取關鍵字作為標籤。'
@@ -311,7 +304,7 @@ export default function NotebookPage() {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ]
-      const reply = await window.electronAPI.openrouterChat(apiKey, model, messages)
+      const reply = await window.electronAPI.aiChat({ model, messages })
       if (reply) {
         const keywords = reply
           .split(/[,，、\n]/)
@@ -337,10 +330,9 @@ export default function NotebookPage() {
 
   const generateOutline = async () => {
     if (!selectedNotebook || outlineLoading) return
-    const apiKey = settings.apiKey
     const model = settings.modelId
-    if (!apiKey || !model) {
-      setChatMessages(prev => [...prev, { role: 'assistant', content: '請先到設定頁面設定 API Key 和模型', type: 'outline' }])
+    if (!model) {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: '請先到設定頁面設定模型', type: 'outline' }])
       return
     }
     setOutlineLoading(true)
@@ -357,10 +349,10 @@ export default function NotebookPage() {
       const systemPrompt = '請分析以下所有筆記和來源資料，生成一份完整的階層式大綱。\n用繁體中文，使用 Markdown 格式（# ## ### 標題層級）。'
       const userPrompt = `筆記內容：\n${notesText || '（尚無筆記）'}\n\n來源資料：\n${sourcesText || '（尚無來源）'}`
 
-      const reply = await window.electronAPI.openrouterChat(apiKey, model, [
+      const reply = await window.electronAPI.aiChat({ model, messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
-      ])
+      ] })
 
       if (!reply) {
         setChatMessages(prev => [...prev, { role: 'assistant', content: 'AI 未回傳內容', type: 'outline' }])

@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import i18n from '../i18n'
-import type { ModelProvider } from '../types'
 
 interface Settings {
   autoStart: boolean; autoUpdate: boolean; darkMode: boolean; language: string;
-  providerId: string; modelId: string; ollamaUrl: string; apiKey: string;
-  memoryPath: string; checkInterval: number;
+  ollamaUrl: string; checkInterval: number;
+  apiProvider: string; apiKey: string; apiModel: string;
+  memoryPath: string;
   hermesUrl: string;
   discordToken: string; discordChannelId: string; discordEnabled: boolean;
   obsidianVault: string; obsidianLiveSync: boolean;
@@ -20,14 +20,15 @@ function SettingsPage() {
   const { t } = useTranslation()
   const [settings, setSettings] = useState<Settings>({
     autoStart: true, autoUpdate: true, darkMode: true, language: 'zh-TW',
-    providerId: 'ollama', modelId: 'openai/gpt-4o-mini', ollamaUrl: 'http://localhost:11434',
-    apiKey: '', memoryPath: 'C:\\AgentOS\\Memory', checkInterval: 30,
+    ollamaUrl: 'http://localhost:11434', checkInterval: 30,
+    apiProvider: 'openrouter', apiKey: '', apiModel: 'openai/gpt-4o-mini',
+    memoryPath: 'C:\\AgentOS\\Memory',
     hermesUrl: 'http://localhost:8080',
     discordToken: '', discordChannelId: '', discordEnabled: false,
     obsidianVault: '', obsidianLiveSync: false,
   })
-  const [providers, setProviders] = useState<ModelProvider[]>([])
-  const [providerModels, setProviderModels] = useState<{ id: string; name: string }[]>([])
+  const [apiModels, setApiModels] = useState<string[]>([])
+  const [apiModelsLoading, setApiModelsLoading] = useState(false)
   const [saved, setSaved] = useState(false)
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null)
   const [hermesTestResult, setHermesTestResult] = useState<string | null>(null)
@@ -39,7 +40,16 @@ function SettingsPage() {
   const [obsidianSyncing, setObsidianSyncing] = useState(false)
   const [obsidianSyncResult, setObsidianSyncResult] = useState<string | null>(null)
 
-  useEffect(() => { loadSettings(); loadProviders() }, [])
+  useEffect(() => { loadSettings() }, [])
+
+  useEffect(() => {
+    if (!settings.apiKey) { setApiModels([]); return }
+    setApiModelsLoading(true)
+    window.electronAPI.listApiModels()
+      .then(setApiModels)
+      .catch(() => setApiModels([]))
+      .finally(() => setApiModelsLoading(false))
+  }, [settings.apiKey, settings.apiProvider])
 
   useEffect(() => {
     const unsub = window.electronAPI.onUpdateStatus((data) => {
@@ -50,28 +60,34 @@ function SettingsPage() {
 
   const loadSettings = async () => {
     try {
-      const s = await window.electronAPI.getSettings()
+      const s = await window.electronAPI.getFullSettings()
       if (s) {
-        setSettings(prev => ({ ...prev, ...s }))
-        if (typeof s.language === 'string' && s.language !== i18n.language) {
-          i18n.changeLanguage(s.language)
-          localStorage.setItem('language', s.language)
+        setSettings(prev => ({
+          ...prev,
+          ollamaUrl: s.ollamaUrl || prev.ollamaUrl,
+          apiProvider: s.apiProvider || prev.apiProvider,
+          apiKey: s.apiKey || prev.apiKey,
+          apiModel: s.apiModel || prev.apiModel,
+        }))
+      }
+      const full = await window.electronAPI.getSettings()
+      if (full) {
+        setSettings(prev => ({ ...prev, ...full }))
+        if (typeof full.language === 'string' && full.language !== i18n.language) {
+          i18n.changeLanguage(full.language)
+          localStorage.setItem('language', full.language)
         }
       }
     } catch (e) { console.error(e) }
   }
-  const loadProviders = async () => {
-    try { setProviders(await window.electronAPI.getProviders()) } catch (e) { console.error(e) }
-  }
-  const handleProviderChange = async (providerId: string) => {
-    setSettings(prev => ({ ...prev, providerId }))
-    try {
-      const models = await window.electronAPI.getProviderModels(providerId)
-      setProviderModels(models.map((m: { id: string; name: string }) => ({ id: m.id, name: m.name })))
-    } catch { setProviderModels([]) }
-  }
   const saveSettings = async () => {
     try {
+      await window.electronAPI.setFullSettings({
+        ollamaUrl: settings.ollamaUrl,
+        apiProvider: settings.apiProvider,
+        apiKey: settings.apiKey,
+        apiModel: settings.apiModel,
+      })
       await window.electronAPI.setSettings(settings as unknown as Record<string, unknown>)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
@@ -147,8 +163,6 @@ function SettingsPage() {
   const handleRestartInstall = async () => {
     await window.electronAPI.quitAndInstall()
   }
-  const selectedProvider = providers.find(p => p.id === settings.providerId)
-
   const renderUpdateStatus = () => {
     if (!updateStatus) return null
     switch (updateStatus.state) {
@@ -211,38 +225,6 @@ function SettingsPage() {
             </div>
           </div>
 
-          {/* AI Provider */}
-          <div className="glass-panel" style={{ borderRadius: '0.5rem', padding: '20px' }}>
-            <h2 style={{ color: '#d4e4fa', fontWeight: 600, marginBottom: 16, fontSize: '16px' }}>{t('settings.provider.title')}</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <div style={{ fontSize: '14px', color: '#d4e4fa', marginBottom: 8 }}>{t('settings.provider.providerId')}</div>
-                <select value={settings.providerId} onChange={e => handleProviderChange(e.target.value)} style={{ width: '240px' }}>
-                  {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
-              </div>
-              {selectedProvider?.requiresKey && (
-                <div>
-                  <div style={{ fontSize: '14px', color: '#d4e4fa', marginBottom: 8 }}>{t('settings.provider.apiKey')}</div>
-                  <input type="password" value={settings.apiKey} onChange={e => updateSetting('apiKey', e.target.value)}
-                    style={{ width: '100%', maxWidth: '400px', padding: '10px 14px', borderRadius: '0.25rem', fontSize: '14px', background: '#0d1c2d', border: '1px solid rgba(255,255,255,0.1)', color: '#d4e4fa' }}
-                    placeholder={`${selectedProvider.name} API Key`}
-                  />
-                </div>
-              )}
-              {selectedProvider?.requiresKey && (
-                <div>
-                  <div style={{ fontSize: '14px', color: '#d4e4fa', marginBottom: 8 }}>模型 ID</div>
-                  <input type="text" value={settings.modelId} onChange={e => updateSetting('modelId', e.target.value)}
-                    style={{ width: '100%', maxWidth: '400px', padding: '10px 14px', borderRadius: '0.25rem', fontSize: '14px', background: '#0d1c2d', border: '1px solid rgba(255,255,255,0.1)', color: '#d4e4fa' }}
-                    placeholder="openai/gpt-4o-mini"
-                  />
-                  <div style={{ fontSize: '12px', color: '#494454', marginTop: 4 }}>輸入 OpenRouter 支援的模型 ID</div>
-                </div>
-              )}
-            </div>
-          </div>
-
           {/* Ollama */}
           <div className="glass-panel" style={{ borderRadius: '0.5rem', padding: '20px' }}>
             <h2 style={{ color: '#d4e4fa', fontWeight: 600, marginBottom: 16, fontSize: '16px' }}>{t('settings.ollama.title')}</h2>
@@ -250,14 +232,53 @@ function SettingsPage() {
               <div>
                 <div style={{ fontSize: '14px', color: '#d4e4fa', marginBottom: 8 }}>{t('settings.ollama.url')}</div>
                 <input type="text" value={settings.ollamaUrl} onChange={e => updateSetting('ollamaUrl', e.target.value)}
-                  style={{ width: '100%', maxWidth: '400px' }} placeholder="http://localhost:11434"
+                  style={{ width: '100%', maxWidth: '400px', padding: '10px 14px', borderRadius: '0.25rem', fontSize: '14px', background: '#0d1c2d', border: '1px solid rgba(255,255,255,0.1)', color: '#d4e4fa' }}
+                  placeholder="http://localhost:11434"
                 />
               </div>
               <div>
                 <div style={{ fontSize: '14px', color: '#d4e4fa', marginBottom: 8 }}>{t('settings.ollama.checkInterval')}</div>
                 <input type="number" value={settings.checkInterval} onChange={e => updateSetting('checkInterval', parseInt(e.target.value) || 30)}
-                  style={{ width: '200px' }} min={10} max={300}
+                  style={{ width: '200px', padding: '10px 14px', borderRadius: '0.25rem', fontSize: '14px', background: '#0d1c2d', border: '1px solid rgba(255,255,255,0.1)', color: '#d4e4fa' }}
+                  min={10} max={300}
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Cloud API */}
+          <div className="glass-panel" style={{ borderRadius: '0.5rem', padding: '20px' }}>
+            <h2 style={{ color: '#d4e4fa', fontWeight: 600, marginBottom: 16, fontSize: '16px' }}>雲端 API</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <div style={{ fontSize: '14px', color: '#d4e4fa', marginBottom: 8 }}>Provider</div>
+                <select value={settings.apiProvider} onChange={e => updateSetting('apiProvider', e.target.value)}
+                  style={{ width: '240px', padding: '10px 14px', borderRadius: '0.25rem', fontSize: '14px', background: '#0d1c2d', border: '1px solid rgba(255,255,255,0.1)', color: '#d4e4fa' }}>
+                  <option value="openrouter">OpenRouter</option>
+                  <option value="anthropic">Anthropic</option>
+                  <option value="openai">OpenAI</option>
+                </select>
+              </div>
+              <div>
+                <div style={{ fontSize: '14px', color: '#d4e4fa', marginBottom: 8 }}>API Key</div>
+                <input type="password" value={settings.apiKey} onChange={e => updateSetting('apiKey', e.target.value)}
+                  style={{ width: '100%', maxWidth: '400px', padding: '10px 14px', borderRadius: '0.25rem', fontSize: '14px', background: '#0d1c2d', border: '1px solid rgba(255,255,255,0.1)', color: '#d4e4fa' }}
+                  placeholder={`${settings.apiProvider === 'openrouter' ? 'OpenRouter' : settings.apiProvider === 'anthropic' ? 'Anthropic' : 'OpenAI'} API Key`}
+                />
+              </div>
+              <div>
+                <div style={{ fontSize: '14px', color: '#d4e4fa', marginBottom: 8 }}>模型</div>
+                {apiModelsLoading ? (
+                  <div style={{ fontSize: '13px', color: '#958ea0', padding: '10px 0' }}>載入中...</div>
+                ) : (
+                  <select value={settings.apiModel} onChange={e => updateSetting('apiModel', e.target.value)}
+                    style={{ width: '100%', maxWidth: '400px', padding: '10px 14px', borderRadius: '0.25rem', fontSize: '14px', background: '#0d1c2d', border: '1px solid rgba(255,255,255,0.1)', color: '#d4e4fa' }}>
+                    {apiModels.length === 0 && <option value="">{settings.apiKey ? '無可用模型' : '請先輸入 API Key'}</option>}
+                    {apiModels.map(m => (
+                      <option key={m} value={m}>{m.replace('api:', '')}</option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
           </div>

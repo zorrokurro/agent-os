@@ -35,6 +35,8 @@ declare global {
       setModelConfig: (config: Record<string, string>) => Promise<boolean>
       chat: (model: string, messages: Array<{ role: string; content: string }>) => Promise<string>
       chatStream: (model: string, messages: Array<{ role: string; content: string }>) => Promise<{ success: boolean; reply?: string; error?: string }>
+      aiChat: (params: { model: string; messages: Array<{ role: string; content: string }>; baseUrl?: string }) => Promise<string>
+      listApiModels: () => Promise<string[]>
       getAgents: () => Promise<AgentInfo[]>
       startAgent: (id: string) => Promise<{ success: boolean; error?: string; port?: number }>
       stopAgent: (id: string) => Promise<{ success: boolean; error?: string }>
@@ -51,6 +53,8 @@ declare global {
       runInstallation: (options: InstallOptions) => Promise<{ success: boolean; error?: string; hardware: HardwareInfo | null }>
       getSettings: () => Promise<Record<string, unknown>>
       setSettings: (settings: Record<string, unknown>) => Promise<void>
+      getFullSettings: () => Promise<{ ollamaUrl: string; apiProvider: string; apiKey: string; apiModel: string }>
+      setFullSettings: (s: Partial<{ ollamaUrl: string; apiProvider: string; apiKey: string; apiModel: string }>) => Promise<boolean>
       getMemoryItems: () => Promise<{ items: MemoryItem[]; stats: MemoryStats }>
       getMemoryItemContent: (filePath: string) => Promise<{ success: boolean; content: string }>
       saveMemoryItem: (filePath: string, content: string) => Promise<{ success: boolean }>

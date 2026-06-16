@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import type { ModelConfig } from '../../hooks/useModelConfig'
+import { formatModelLabel } from '../../hooks/useModelConfig'
 
 interface ModelSelectorProps {
   config: ModelConfig
@@ -59,7 +60,7 @@ export default function ModelSelector({ config, models, onSave, onClose }: Model
             >
               {models.length === 0 && <option value="">無可用模型</option>}
               {models.map(m => (
-                <option key={m} value={m}>{m}</option>
+                <option key={m} value={m}>{formatModelLabel(m)}</option>
               ))}
             </select>
           </div>

@@ -29,6 +29,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setModelConfig: (config) => ipcRenderer.invoke('set-model-config', config),
   chat: (model, messages) => ipcRenderer.invoke('chat', model, messages),
   chatStream: (model, messages) => ipcRenderer.invoke('chat-stream', model, messages),
+  aiChat: (params) => ipcRenderer.invoke('ai-chat', params),
+  listApiModels: () => ipcRenderer.invoke('list-api-models'),
 
   // Agent management
   getAgents: () => ipcRenderer.invoke('get-agents'),
@@ -51,6 +53,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Settings
   getSettings: () => ipcRenderer.invoke('get-settings'),
   setSettings: (settings) => ipcRenderer.invoke('set-settings', settings),
+  getFullSettings: () => ipcRenderer.invoke('get-full-settings'),
+  setFullSettings: (s) => ipcRenderer.invoke('set-full-settings', s),
 
   // Memory
   getMemoryItems: () => ipcRenderer.invoke('get-memory-items'),
