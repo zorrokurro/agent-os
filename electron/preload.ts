@@ -6,98 +6,98 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Providers
   getProviders: () => ipcRenderer.invoke('get-providers'),
-  getProviderModels: (providerId) => ipcRenderer.invoke('get-provider-models', providerId),
-  getDefaultModel: (providerId) => ipcRenderer.invoke('get-default-model', providerId),
+  getProviderModels: (providerId: string) => ipcRenderer.invoke('get-provider-models', providerId),
+  getDefaultModel: (providerId: string) => ipcRenderer.invoke('get-default-model', providerId),
 
   // Council
-  councilGetCouncillorResponses: (apiKey, model, question, mode) => ipcRenderer.invoke('council-get-councillor-responses', apiKey, model, question, mode),
-  councilGetPeerRankings: (apiKey, model, question, councillorResponses) => ipcRenderer.invoke('council-get-peer-rankings', apiKey, model, question, councillorResponses),
-  councilGetChairmanSynthesis: (apiKey, model, question, councillorResponses, rankings) => ipcRenderer.invoke('council-get-chairman-synthesis', apiKey, model, question, councillorResponses, rankings),
+  councilGetCouncillorResponses: (apiKey: string, model: string, question: string, mode: string) => ipcRenderer.invoke('council-get-councillor-responses', apiKey, model, question, mode),
+  councilGetPeerRankings: (apiKey: string, model: string, question: string, councillorResponses: unknown[]) => ipcRenderer.invoke('council-get-peer-rankings', apiKey, model, question, councillorResponses),
+  councilGetChairmanSynthesis: (apiKey: string, model: string, question: string, councillorResponses: unknown[], rankings: Record<string, number>) => ipcRenderer.invoke('council-get-chairman-synthesis', apiKey, model, question, councillorResponses, rankings),
 
   // OpenRouter
-  openrouterChat: (apiKey, model, messages) => ipcRenderer.invoke('openrouter-chat', apiKey, model, messages),
+  openrouterChat: (apiKey: string, model: string, messages: unknown[]) => ipcRenderer.invoke('openrouter-chat', apiKey, model, messages),
 
   // Hermes
-  testHermesConnection: (hermesUrl) => ipcRenderer.invoke('test-hermes-connection', hermesUrl),
+  testHermesConnection: (hermesUrl: string) => ipcRenderer.invoke('test-hermes-connection', hermesUrl),
 
   // Ollama
   checkOllama: () => ipcRenderer.invoke('check-ollama'),
   installOllama: () => ipcRenderer.invoke('install-ollama'),
-  pullModel: (model) => ipcRenderer.invoke('pull-model', model),
+  pullModel: (model: string) => ipcRenderer.invoke('pull-model', model),
   listModels: () => ipcRenderer.invoke('list-models'),
   getModelConfig: () => ipcRenderer.invoke('get-model-config'),
-  setModelConfig: (config) => ipcRenderer.invoke('set-model-config', config),
-  chat: (model, messages) => ipcRenderer.invoke('chat', model, messages),
-  chatStream: (model, messages) => ipcRenderer.invoke('chat-stream', model, messages),
-  aiChat: (params) => ipcRenderer.invoke('ai-chat', params),
+  setModelConfig: (config: Record<string, unknown>) => ipcRenderer.invoke('set-model-config', config),
+  chat: (model: string, messages: unknown[]) => ipcRenderer.invoke('chat', model, messages),
+  chatStream: (model: string, messages: unknown[]) => ipcRenderer.invoke('chat-stream', model, messages),
+  aiChat: (params: Record<string, unknown>) => ipcRenderer.invoke('ai-chat', params),
   listApiModels: () => ipcRenderer.invoke('list-api-models'),
 
   // Agent management
   getAgents: () => ipcRenderer.invoke('get-agents'),
-  startAgent: (id) => ipcRenderer.invoke('start-agent', id),
-  stopAgent: (id) => ipcRenderer.invoke('stop-agent', id),
-  getAgentStatus: (id) => ipcRenderer.invoke('get-agent-status', id),
-  importAgentFromGitHub: (url) => ipcRenderer.invoke('import-agent-from-github', url),
-  installAgent: (options) => ipcRenderer.invoke('install-agent', options),
-  upgradeAgent: (id) => ipcRenderer.invoke('upgrade-agent', id),
+  startAgent: (id: string) => ipcRenderer.invoke('start-agent', id),
+  stopAgent: (id: string) => ipcRenderer.invoke('stop-agent', id),
+  getAgentStatus: (id: string) => ipcRenderer.invoke('get-agent-status', id),
+  importAgentFromGitHub: (url: string) => ipcRenderer.invoke('import-agent-from-github', url),
+  installAgent: (options: Record<string, unknown>) => ipcRenderer.invoke('install-agent', options),
+  upgradeAgent: (id: string) => ipcRenderer.invoke('upgrade-agent', id),
   getFavorites: () => ipcRenderer.invoke('get-favorites'),
-  toggleFavorite: (agentId) => ipcRenderer.invoke('toggle-favorite', agentId),
-  isFavorite: (agentId) => ipcRenderer.invoke('is-favorite', agentId),
-  healthCheckAgent: (id) => ipcRenderer.invoke('health-check-agent', id),
-  getAgentLogs: (id) => ipcRenderer.invoke('get-agent-logs', id),
-  getAgentDocs: (id) => ipcRenderer.invoke('get-agent-docs', id),
+  toggleFavorite: (agentId: string) => ipcRenderer.invoke('toggle-favorite', agentId),
+  isFavorite: (agentId: string) => ipcRenderer.invoke('is-favorite', agentId),
+  healthCheckAgent: (id: string) => ipcRenderer.invoke('health-check-agent', id),
+  getAgentLogs: (id: string) => ipcRenderer.invoke('get-agent-logs', id),
+  getAgentDocs: (id: string) => ipcRenderer.invoke('get-agent-docs', id),
 
   // Installation
-  runInstallation: (options) => ipcRenderer.invoke('run-installation', options),
+  runInstallation: (options: Record<string, unknown>) => ipcRenderer.invoke('run-installation', options),
 
   // Settings
   getSettings: () => ipcRenderer.invoke('get-settings'),
-  setSettings: (settings) => ipcRenderer.invoke('set-settings', settings),
+  setSettings: (settings: Record<string, unknown>) => ipcRenderer.invoke('set-settings', settings),
   getFullSettings: () => ipcRenderer.invoke('get-full-settings'),
-  setFullSettings: (s) => ipcRenderer.invoke('set-full-settings', s),
+  setFullSettings: (s: Record<string, unknown>) => ipcRenderer.invoke('set-full-settings', s),
 
   // Memory
   getMemoryItems: () => ipcRenderer.invoke('get-memory-items'),
-  getMemoryItemContent: (filePath) => ipcRenderer.invoke('get-memory-item-content', filePath),
-  saveMemoryItem: (filePath, content) => ipcRenderer.invoke('save-memory-item', filePath, content),
-  saveConversation: (agentName, messages) => ipcRenderer.invoke('save-conversation', agentName, messages),
+  getMemoryItemContent: (filePath: string) => ipcRenderer.invoke('get-memory-item-content', filePath),
+  saveMemoryItem: (filePath: string, content: string) => ipcRenderer.invoke('save-memory-item', filePath, content),
+  saveConversation: (agentName: string, messages: unknown[]) => ipcRenderer.invoke('save-conversation', agentName, messages),
 
   // Research
-  runResearch: (options) => ipcRenderer.invoke('run-research', options),
+  runResearch: (options: Record<string, unknown>) => ipcRenderer.invoke('run-research', options),
 
   // Event listeners
-  onInstallProgress: (callback) => {
-    const handler = (_, data) => callback(data)
+  onInstallProgress: (callback: (data: unknown) => void) => {
+    const handler = (_: unknown, data: unknown) => callback(data)
     ipcRenderer.on('install-progress', handler)
     return () => ipcRenderer.removeListener('install-progress', handler)
   },
-  onChatToken: (callback) => {
-    const handler = (_, token) => callback(token)
+  onChatToken: (callback: (token: string) => void) => {
+    const handler = (_: unknown, token: string) => callback(token)
     ipcRenderer.on('chat-token', handler)
     return () => ipcRenderer.removeListener('chat-token', handler)
   },
-  onChatDone: (callback) => {
-    const handler = (_, reply) => callback(reply)
+  onChatDone: (callback: (reply: string) => void) => {
+    const handler = (_: unknown, reply: string) => callback(reply)
     ipcRenderer.on('chat-done', handler)
     return () => ipcRenderer.removeListener('chat-done', handler)
   },
-  onChatError: (callback) => {
-    const handler = (_, error) => callback(error)
+  onChatError: (callback: (error: string) => void) => {
+    const handler = (_: unknown, error: string) => callback(error)
     ipcRenderer.on('chat-error', handler)
     return () => ipcRenderer.removeListener('chat-error', handler)
   },
-  onHealthCheckResult: (callback) => {
-    const handler = (_, data) => callback(data)
+  onHealthCheckResult: (callback: (data: unknown) => void) => {
+    const handler = (_: unknown, data: unknown) => callback(data)
     ipcRenderer.on('health-check-result', handler)
     return () => ipcRenderer.removeListener('health-check-result', handler)
   },
-  onThemeChanged: (callback) => {
-    const handler = (_, darkMode) => callback(darkMode)
+  onThemeChanged: (callback: (darkMode: boolean) => void) => {
+    const handler = (_: unknown, darkMode: boolean) => callback(darkMode)
     ipcRenderer.on('theme-changed', handler)
     return () => ipcRenderer.removeListener('theme-changed', handler)
   },
-  onUpdateStatus: (callback) => {
-    const handler = (_, data) => callback(data)
+  onUpdateStatus: (callback: (data: unknown) => void) => {
+    const handler = (_: unknown, data: unknown) => callback(data)
     ipcRenderer.on('update-status', handler)
     return () => ipcRenderer.removeListener('update-status', handler)
   },
@@ -115,88 +115,88 @@ contextBridge.exposeInMainWorld('electronAPI', {
   umpDiscoverUnregistered: () => ipcRenderer.invoke('ump-discover-unregistered'),
   umpDiscoverWithMemory: () => ipcRenderer.invoke('ump-discover-with-memory'),
   umpDiscoverRegisterAll: () => ipcRenderer.invoke('ump-discover-register-all'),
-  umpDiscoverConsolidate: (agentId) => ipcRenderer.invoke('ump-discover-consolidate', agentId),
+  umpDiscoverConsolidate: (agentId: string) => ipcRenderer.invoke('ump-discover-consolidate', agentId),
   umpBridgeConnect: () => ipcRenderer.invoke('ump-bridge-connect'),
   umpBridgeImport: () => ipcRenderer.invoke('ump-bridge-import'),
   umpBridgeExport: () => ipcRenderer.invoke('ump-bridge-export'),
   umpBridgeSync: () => ipcRenderer.invoke('ump-bridge-sync'),
   umpBridgeStatus: () => ipcRenderer.invoke('ump-bridge-status'),
-  umpHubSearch: (query, opts) => ipcRenderer.invoke('ump-hub-search', query, opts),
+  umpHubSearch: (query: string, opts: Record<string, unknown>) => ipcRenderer.invoke('ump-hub-search', query, opts),
   umpHubStats: () => ipcRenderer.invoke('ump-hub-stats'),
   umpHubAll: () => ipcRenderer.invoke('ump-hub-all'),
-  umpExchangeRegister: (agentId, name, description) => ipcRenderer.invoke('ump-exchange-register', agentId, name, description),
+  umpExchangeRegister: (agentId: string, name: string, description: string) => ipcRenderer.invoke('ump-exchange-register', agentId, name, description),
   umpExchangeStats: () => ipcRenderer.invoke('ump-exchange-stats'),
-  umpAddMemory: (params) => ipcRenderer.invoke('ump-add-memory', params),
+  umpAddMemory: (params: Record<string, unknown>) => ipcRenderer.invoke('ump-add-memory', params),
 
   // UMP Conversations
-  umpConversations: (agentName, limit) => ipcRenderer.invoke('ump-conversations', agentName, limit),
-  umpSessionMessages: (sessionId) => ipcRenderer.invoke('ump-session-messages', sessionId),
+  umpConversations: (agentName: string, limit: number) => ipcRenderer.invoke('ump-conversations', agentName, limit),
+  umpSessionMessages: (sessionId: string) => ipcRenderer.invoke('ump-session-messages', sessionId),
   umpSessionStats: () => ipcRenderer.invoke('ump-session-stats'),
 
   // Task Queue
-  umpCreateTask: (title, content, target, source) => ipcRenderer.invoke('ump:create-task', title, content, target, source),
-  umpGetTasks: (target, status) => ipcRenderer.invoke('ump:get-tasks', target, status),
-  umpUpdateTask: (id, status, result) => ipcRenderer.invoke('ump:update-task', id, status, result),
-  umpGetPendingTasks: (target) => ipcRenderer.invoke('ump:get-pending-tasks', target),
+  umpCreateTask: (title: string, content: string, target: string, source: string) => ipcRenderer.invoke('ump:create-task', title, content, target, source),
+  umpGetTasks: (target: string, status: string) => ipcRenderer.invoke('ump:get-tasks', target, status),
+  umpUpdateTask: (id: string, status: string, result: string) => ipcRenderer.invoke('ump:update-task', id, status, result),
+  umpGetPendingTasks: (target: string) => ipcRenderer.invoke('ump:get-pending-tasks', target),
 
   // System Agent Detection
   systemDetectAll: () => ipcRenderer.invoke('system-detect-all'),
-  systemDetectDirectories: (dirs) => ipcRenderer.invoke('system-detect-directories', dirs),
-  systemAddToLibrary: (agent) => ipcRenderer.invoke('system-add-to-library', agent),
+  systemDetectDirectories: (dirs: string[]) => ipcRenderer.invoke('system-detect-directories', dirs),
+  systemAddToLibrary: (agent: Record<string, unknown>) => ipcRenderer.invoke('system-add-to-library', agent),
 
   // Notebook
   notebookList: () => ipcRenderer.invoke('notebook:list'),
-  notebookGet: (id) => ipcRenderer.invoke('notebook:get', id),
-  notebookCreate: (name, description, icon, color) => ipcRenderer.invoke('notebook:create', name, description, icon, color),
-  notebookUpdate: (id, updates) => ipcRenderer.invoke('notebook:update', id, updates),
-  notebookDelete: (id) => ipcRenderer.invoke('notebook:delete', id),
-  noteList: (notebookId) => ipcRenderer.invoke('note:list', notebookId),
-  noteGet: (id) => ipcRenderer.invoke('note:get', id),
-  noteCreate: (notebookId, title, content, tags) => ipcRenderer.invoke('note:create', notebookId, title, content, tags),
-  noteUpdate: (id, updates) => ipcRenderer.invoke('note:update', id, updates),
-  noteDelete: (id) => ipcRenderer.invoke('note:delete', id),
-  noteSearch: (query, notebookId, limit) => ipcRenderer.invoke('note:search', query, notebookId, limit),
+  notebookGet: (id: string) => ipcRenderer.invoke('notebook:get', id),
+  notebookCreate: (name: string, description: string, icon: string, color: string) => ipcRenderer.invoke('notebook:create', name, description, icon, color),
+  notebookUpdate: (id: string, updates: Record<string, unknown>) => ipcRenderer.invoke('notebook:update', id, updates),
+  notebookDelete: (id: string) => ipcRenderer.invoke('notebook:delete', id),
+  noteList: (notebookId: string) => ipcRenderer.invoke('note:list', notebookId),
+  noteGet: (id: string) => ipcRenderer.invoke('note:get', id),
+  noteCreate: (notebookId: string, title: string, content: string, tags: string[]) => ipcRenderer.invoke('note:create', notebookId, title, content, tags),
+  noteUpdate: (id: string, updates: Record<string, unknown>) => ipcRenderer.invoke('note:update', id, updates),
+  noteDelete: (id: string) => ipcRenderer.invoke('note:delete', id),
+  noteSearch: (query: string, notebookId: string, limit: number) => ipcRenderer.invoke('note:search', query, notebookId, limit),
   noteAllTags: () => ipcRenderer.invoke('note:all-tags'),
-  noteByTag: (tag, limit) => ipcRenderer.invoke('note:by-tag', tag, limit),
+  noteByTag: (tag: string, limit: number) => ipcRenderer.invoke('note:by-tag', tag, limit),
 
   // Sources
-  sourceImportPDF: (notebookId) => ipcRenderer.invoke('source:import-pdf', notebookId),
-  sourceImportURL: (url, notebookId) => ipcRenderer.invoke('source:import-url', url, notebookId),
-  sourceImportText: (text, notebookId) => ipcRenderer.invoke('source:import-text', text, notebookId),
-  sourceGet: (notebookId) => ipcRenderer.invoke('source:get', notebookId),
-  sourceDelete: (sourceId) => ipcRenderer.invoke('source:delete', sourceId),
+  sourceImportPDF: (notebookId: string) => ipcRenderer.invoke('source:import-pdf', notebookId),
+  sourceImportURL: (url: string, notebookId: string) => ipcRenderer.invoke('source:import-url', url, notebookId),
+  sourceImportText: (text: string, notebookId: string) => ipcRenderer.invoke('source:import-text', text, notebookId),
+  sourceGet: (notebookId: string) => ipcRenderer.invoke('source:get', notebookId),
+  sourceDelete: (sourceId: string) => ipcRenderer.invoke('source:delete', sourceId),
 
   // Orchestrator
-  orchestratorExecute: (prompt) => ipcRenderer.invoke('orchestrator:execute', prompt),
-  onOrchestratorProgress: (callback) => {
-    const handler = (_, data) => callback(data)
+  orchestratorExecute: (prompt: string) => ipcRenderer.invoke('orchestrator:execute', prompt),
+  onOrchestratorProgress: (callback: (data: unknown) => void) => {
+    const handler = (_: unknown, data: unknown) => callback(data)
     ipcRenderer.on('orchestrator:progress', handler)
     return () => ipcRenderer.removeListener('orchestrator:progress', handler)
   },
-  onOrchestratorTaskStart: (callback) => {
-    const handler = (_, data) => callback(data)
+  onOrchestratorTaskStart: (callback: (data: unknown) => void) => {
+    const handler = (_: unknown, data: unknown) => callback(data)
     ipcRenderer.on('orchestrator:task-start', handler)
     return () => ipcRenderer.removeListener('orchestrator:task-start', handler)
   },
-  onOrchestratorTaskComplete: (callback) => {
-    const handler = (_, data) => callback(data)
+  onOrchestratorTaskComplete: (callback: (data: unknown) => void) => {
+    const handler = (_: unknown, data: unknown) => callback(data)
     ipcRenderer.on('orchestrator:task-complete', handler)
     return () => ipcRenderer.removeListener('orchestrator:task-complete', handler)
   },
-  onOrchestratorTaskFail: (callback) => {
-    const handler = (_, data) => callback(data)
+  onOrchestratorTaskFail: (callback: (data: unknown) => void) => {
+    const handler = (_: unknown, data: unknown) => callback(data)
     ipcRenderer.on('orchestrator:task-fail', handler)
     return () => ipcRenderer.removeListener('orchestrator:task-fail', handler)
   },
-  onOrchestratorResult: (callback) => {
-    const handler = (_, data) => callback(data)
+  onOrchestratorResult: (callback: (data: unknown) => void) => {
+    const handler = (_: unknown, data: unknown) => callback(data)
     ipcRenderer.on('orchestrator:result', handler)
     return () => ipcRenderer.removeListener('orchestrator:result', handler)
   },
 
   // GitHub Installer
-  githubAnalyze: (url) => ipcRenderer.invoke('github:analyze', url),
-  githubInstall: (url, onLog) => {
+  githubAnalyze: (url: string) => ipcRenderer.invoke('github:analyze', url),
+  githubInstall: (url: string, onLog: (line: string) => void) => {
     const handler = (_: unknown, line: string) => onLog(line)
     ipcRenderer.on('github:install-log', handler)
     const installPromise = ipcRenderer.invoke('github:install', url)
@@ -207,7 +207,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Discord
   discordStart: () => ipcRenderer.invoke('discord:start'),
   discordStop: () => ipcRenderer.invoke('discord:stop'),
-  discordSend: (text) => ipcRenderer.invoke('discord:send', text),
+  discordSend: (text: string) => ipcRenderer.invoke('discord:send', text),
   discordTest: () => ipcRenderer.invoke('discord:test'),
   discordStatus: () => ipcRenderer.invoke('discord:status'),
 
@@ -215,7 +215,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   obsidianExport: () => ipcRenderer.invoke('obsidian:export'),
   obsidianImport: () => ipcRenderer.invoke('obsidian:import'),
   obsidianSync: () => ipcRenderer.invoke('obsidian:sync'),
-  obsidianTest: (vaultPath) => ipcRenderer.invoke('obsidian:test', vaultPath),
+  obsidianTest: (vaultPath: string) => ipcRenderer.invoke('obsidian:test', vaultPath),
   obsidianWatch: () => ipcRenderer.invoke('obsidian:watch'),
   obsidianWatchStop: () => ipcRenderer.invoke('obsidian:watch-stop'),
 })

@@ -1,0 +1,18 @@
+{
+  "entry": [
+    "electron/main.ts",
+    "electron/preload.ts",
+    "src/main.tsx",
+    "src/App.tsx"
+  ],
+  "project": [
+    "electron/**/*.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ],
+  "ignoreDependencies": [
+    "electron-builder",
+    "@rollup/rollup-linux-x64-gnu",
+    "@rollup/rollup-win32-x64-msvc"
+  ]
+}

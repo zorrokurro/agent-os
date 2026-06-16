@@ -219,11 +219,11 @@ export default function SystemAgentsPage() {
                       )}
                     </div>
                     <div style={{ fontSize: '12px', color: '#958ea0', marginTop: 2 }}>{agent.description}</div>
-                    {agent.details.path && (
+                    {(() => { const p = agent.details.path; return typeof p === 'string' && p && (
                       <div style={{ fontSize: '11px', color: '#5a5470', fontFamily: 'JetBrains Mono, monospace', marginTop: 4 }}>
-                        {String(agent.details.path)}
+                        {p}
                       </div>
-                    )}
+                    ) })()}
                   </div>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                     {agent.running && (

@@ -50,7 +50,7 @@ function ResearchPage() {
       const memory = await window.electronAPI.getMemoryItems()
       const item = memory.items.find((i: any) => i.path === path)
       if (item) {
-        setReport({ title: item.name, abstract: '', sections: [{ heading: item.name, level: 1, content: item.content, sources: [] }], references: [], metadata: { query: item.name, generatedAt: item.modified, totalSources: 0, sourcesBreakdown: {}, reportPath: path } })
+        setReport({ title: item.name, abstract: '', sections: [{ heading: item.name, level: 1, content: item.content || '', sources: [] }], references: [], metadata: { query: item.name, generatedAt: item.modified, totalSources: 0, sourcesBreakdown: {}, reportPath: path } })
         setActiveTab('preview')
       }
     } catch (e) { console.error('載入報告失敗:', e) }
