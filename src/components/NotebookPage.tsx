@@ -9,6 +9,7 @@ const ICONS = ['📓', '📔', '📕', '📗', '📘', '📙', '🗂️', '💡'
 interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
+  type?: 'summary' | 'outline' | 'tags' | 'chat'
 }
 
 interface Settings {
@@ -59,17 +60,13 @@ export default function NotebookPage() {
   const [notes, setNotes] = useState<Note[]>([])
   const [selectedNote, setSelectedNote] = useState<Note | null>(null)
   const [editContent, setEditContent] = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<Note[]>([])
   const [showNewNotebook, setShowNewNotebook] = useState(false)
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [selectedIcon, setSelectedIcon] = useState('📓')
   const [selectedColor, setSelectedColor] = useState('#a078ff')
   const [allTags, setAllTags] = useState<Array<{ tag: string; count: number }>>([])
-  const [filterTag, setFilterTag] = useState<string | null>(null)
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit')
-  const [showChat, setShowChat] = useState(false)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatInput, setChatInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
@@ -77,7 +74,6 @@ export default function NotebookPage() {
 
   // AI feature states
   const [settings, setSettings] = useState<Settings>({ apiKey: '', modelId: '', providerId: 'ollama' })
-  const [summary, setSummary] = useState<string>('')
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [extractLoading, setExtractLoading] = useState(false)
   const [outlineLoading, setOutlineLoading] = useState(false)
@@ -89,13 +85,11 @@ export default function NotebookPage() {
 
   // Source management
   const [sources, setSources] = useState<Source[]>([])
-  const [sourcesExpanded, setSourcesExpanded] = useState(false)
   const [showUrlInput, setShowUrlInput] = useState(false)
   const [urlInput, setUrlInput] = useState('')
   const [showTextInput, setShowTextInput] = useState(false)
   const [textInput, setTextInput] = useState('')
   const [sourceLoading, setSourceLoading] = useState(false)
-  const [hoveredNoteId, setHoveredNoteId] = useState<string | null>(null)
 
   const loadNotebooks = useCallback(async () => {
     const list = await window.electronAPI.notebookList()
@@ -154,7 +148,6 @@ export default function NotebookPage() {
     setSelectedNotebook(nb)
     setSelectedNote(null)
     setEditContent('')
-    setSummary('')
     const noteList = await window.electronAPI.noteList(nb.id)
     setNotes(noteList)
     loadSources(nb.id)
@@ -165,17 +158,7 @@ export default function NotebookPage() {
     setEditContent(note.content)
     setEditorMode('edit')
     setChatMessages([])
-    setShowChat(false)
-    setSummary('')
   }
-
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) { setSearchResults([]); return }
-    const results = await window.electronAPI.noteSearch(searchQuery, selectedNotebook?.id)
-    setSearchResults(results)
-  }
-
-  useEffect(() => { handleSearch() }, [searchQuery])
 
   const createNotebook = async () => {
     if (!newName.trim()) return
@@ -286,7 +269,7 @@ export default function NotebookPage() {
   const summarizeNote = async () => {
     if (!selectedNote || summaryLoading) return
     setSummaryLoading(true)
-    setSummary('')
+    setChatMessages(prev => [...prev, { role: 'user', content: '摘要全文', type: 'chat' }])
     try {
       const apiKey = settings.apiKey
       const model = settings.modelId
@@ -302,11 +285,10 @@ export default function NotebookPage() {
       ]
       const reply = await window.electronAPI.openrouterChat(apiKey, model, messages)
       if (reply) {
-        setSummary(reply)
+        setChatMessages(prev => [...prev, { role: 'assistant', content: reply, type: 'summary' }])
       }
     } catch (e) {
-      console.error('Summarize error:', e)
-      setSummary('摘要生成失敗')
+      setChatMessages(prev => [...prev, { role: 'assistant', content: `摘要生成失敗：${e instanceof Error ? e.message : String(e)}`, type: 'summary' }])
     } finally {
       setSummaryLoading(false)
     }
@@ -315,6 +297,7 @@ export default function NotebookPage() {
   const extractTags = async () => {
     if (!selectedNote || extractLoading) return
     setExtractLoading(true)
+    setChatMessages(prev => [...prev, { role: 'user', content: '提取標籤', type: 'chat' }])
     try {
       const apiKey = settings.apiKey
       const model = settings.modelId
@@ -330,23 +313,23 @@ export default function NotebookPage() {
       ]
       const reply = await window.electronAPI.openrouterChat(apiKey, model, messages)
       if (reply) {
-        // Parse keywords from reply
         const keywords = reply
           .split(/[,，、\n]/)
           .map(k => k.trim())
           .filter(k => k.length > 0 && k.length < 30)
           .slice(0, 5)
 
-        // Add keywords as tags
         if (keywords.length > 0 && selectedNote) {
           const newTags = [...new Set([...selectedNote.tags, ...keywords])]
           await window.electronAPI.noteUpdate(selectedNote.id, { tags: newTags })
           if (selectedNotebook) await selectNotebook(selectedNotebook)
           loadTags()
         }
+
+        setChatMessages(prev => [...prev, { role: 'assistant', content: `已提取標籤：${keywords.join('、')}`, type: 'tags' }])
       }
     } catch (e) {
-      console.error('Extract tags error:', e)
+      setChatMessages(prev => [...prev, { role: 'assistant', content: `標籤提取失敗：${e instanceof Error ? e.message : String(e)}`, type: 'tags' }])
     } finally {
       setExtractLoading(false)
     }
@@ -357,10 +340,11 @@ export default function NotebookPage() {
     const apiKey = settings.apiKey
     const model = settings.modelId
     if (!apiKey || !model) {
-      alert('請先到設定頁面設定 API Key 和模型')
+      setChatMessages(prev => [...prev, { role: 'assistant', content: '請先到設定頁面設定 API Key 和模型', type: 'outline' }])
       return
     }
     setOutlineLoading(true)
+    setChatMessages(prev => [...prev, { role: 'user', content: '生成大綱', type: 'chat' }])
     try {
       const [noteList, sourceList] = await Promise.all([
         window.electronAPI.noteList(selectedNotebook.id),
@@ -379,18 +363,13 @@ export default function NotebookPage() {
       ])
 
       if (!reply) {
-        alert('AI 未回傳內容')
+        setChatMessages(prev => [...prev, { role: 'assistant', content: 'AI 未回傳內容', type: 'outline' }])
         return
       }
 
-      const today = new Date().toISOString().split('T')[0]
-      const title = `大綱 - ${selectedNotebook.name} - ${today}`
-      await window.electronAPI.noteCreate(selectedNotebook.id, title, reply)
-      await selectNotebook(selectedNotebook)
-      alert('✅ 大綱已生成並存為新筆記')
+      setChatMessages(prev => [...prev, { role: 'assistant', content: reply, type: 'outline' }])
     } catch (e) {
-      console.error('Generate outline error:', e)
-      alert(`生成大綱失敗：${e instanceof Error ? e.message : String(e)}`)
+      setChatMessages(prev => [...prev, { role: 'assistant', content: `生成大綱失敗：${e instanceof Error ? e.message : String(e)}`, type: 'outline' }])
     } finally {
       setOutlineLoading(false)
     }
@@ -466,26 +445,19 @@ export default function NotebookPage() {
     }
   }
 
-  const displayNotes = filterTag
-    ? notes.filter(n => n.tags.includes(filterTag))
-    : searchResults.length > 0 || searchQuery
-      ? searchResults
-      : notes
-
   return (
-    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
-      {/* Column 1: Notebooks */}
+    <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 220px', height: '100%', overflow: 'hidden' }}>
+      {/* Column 1: Notebooks + Sources */}
       <div style={{
-        width: '220px', minWidth: '220px',
-        background: 'rgba(18, 33, 49, 0.9)',
-        borderRight: '1px solid rgba(255,255,255,0.1)',
+        background: 'var(--color-background-primary, rgba(18, 33, 49, 0.9))',
+        borderRight: '0.5px solid rgba(255,255,255,0.1)',
         display: 'flex', flexDirection: 'column',
       }}>
-        <div style={{ padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontWeight: 700, color: '#d0bcff', fontSize: '16px' }}>Notebooks</span>
+        <div style={{ padding: '12px 12px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontWeight: 600, color: 'var(--color-text-secondary, #958ea0)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notebooks</span>
           <button
             onClick={() => setShowNewNotebook(true)}
-            style={{ background: 'none', border: 'none', color: '#a078ff', fontSize: '20px', cursor: 'pointer' }}
+            style={{ background: 'none', border: 'none', color: '#a078ff', fontSize: '16px', cursor: 'pointer', padding: '2px 6px', borderRadius: '4px' }}
           >+</button>
         </div>
 
@@ -519,330 +491,242 @@ export default function NotebookPage() {
           {notebooks.map(nb => (
             <div key={nb.id} onClick={() => selectNotebook(nb)}
               style={{
-                padding: '10px 12px', borderRadius: '6px', cursor: 'pointer', marginBottom: '4px',
-                background: selectedNotebook?.id === nb.id ? 'rgba(160,120,255,0.2)' : 'transparent',
-                border: selectedNotebook?.id === nb.id ? '1px solid rgba(160,120,255,0.3)' : '1px solid transparent',
+                padding: '6px 8px', borderRadius: '6px', cursor: 'pointer', marginBottom: '2px',
+                background: selectedNotebook?.id === nb.id ? 'rgba(160,120,255,0.1)' : 'transparent',
+                border: selectedNotebook?.id === nb.id ? '0.5px solid rgba(160,120,255,0.2)' : '0.5px solid transparent',
               }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '18px' }}>{nb.icon}</span>
-                <span style={{ color: '#fff', fontSize: '14px', fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nb.name}</span>
-                <span style={{ color: '#958ea0', fontSize: '11px' }}>{nb.noteCount}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: nb.color || '#a078ff', flexShrink: 0 }} />
+                <span style={{ color: '#e0d8e8', fontSize: '13px', fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nb.name}</span>
               </div>
-              {nb.description && (
-                <div style={{ color: '#958ea0', fontSize: '11px', marginTop: '2px', marginLeft: '26px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nb.description}</div>
-              )}
+              <div style={{ paddingLeft: '14px', fontSize: '11px', color: '#958ea0', marginTop: '1px' }}>
+                {nb.noteCount} 篆筆記
+              </div>
             </div>
           ))}
           {notebooks.length === 0 && (
-            <div style={{ textAlign: 'center', color: '#958ea0', padding: '40px 16px', fontSize: '13px' }}>
-              尚無筆記本<br/>點擊 + 建立第一個
+            <div style={{ textAlign: 'center', color: '#958ea0', padding: '32px 12px', fontSize: '12px' }}>
+              尚無筆記本
             </div>
           )}
         </div>
 
-        {/* Sources Section */}
         {selectedNotebook && (
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-            <div
-              onClick={() => setSourcesExpanded(!sourcesExpanded)}
-              style={{ padding: '10px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-            >
-              <span style={{ color: '#d0bcff', fontSize: '13px', fontWeight: 600 }}>來源</span>
-              <span style={{ color: '#958ea0', fontSize: '11px' }}>
-                {sourcesExpanded ? '▾' : '▸'} {sources.length}
-              </span>
+          <div style={{ borderTop: '0.5px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ padding: '10px 12px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--color-text-secondary, #958ea0)', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sources</span>
+              <span style={{ color: '#958ea0', fontSize: '10px' }}>{sources.length}</span>
             </div>
 
-            {sourcesExpanded && (
-              <div style={{ padding: '0 8px 8px', maxHeight: '200px', overflow: 'auto' }}>
-                {sources.map(src => (
-                  <div key={src.id} style={{ padding: '6px 8px', borderRadius: '4px', marginBottom: '2px', background: 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '12px' }}>
-                      {src.type === 'pdf' ? '📄' : src.type === 'url' ? '🔗' : '📝'}
-                    </span>
-                    <span style={{ color: '#e0d8e8', fontSize: '11px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {src.title}
-                    </span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDeleteSource(src.id) }}
-                      style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '10px', cursor: 'pointer', padding: 0, opacity: 0.6 }}
-                    >✕</button>
-                  </div>
-                ))}
-                {sources.length === 0 && (
-                  <div style={{ color: '#958ea0', fontSize: '11px', textAlign: 'center', padding: '8px' }}>尚無來源</div>
-                )}
-
-                {/* URL Input */}
-                {showUrlInput && (
-                  <div style={{ marginTop: '6px' }}>
-                    <input
-                      value={urlInput}
-                      onChange={e => setUrlInput(e.target.value)}
-                      placeholder="貼上網址..."
-                      onKeyDown={e => { if (e.key === 'Enter') handleImportURL() }}
-                      style={{ width: '100%', padding: '5px 8px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#fff', fontSize: '11px', boxSizing: 'border-box' }}
-                    />
-                    <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
-                      <button onClick={handleImportURL} disabled={sourceLoading || !urlInput.trim()}
-                        style={{ flex: 1, padding: '4px', background: 'rgba(160,120,255,0.3)', border: 'none', borderRadius: '3px', color: '#d0bcff', fontSize: '10px', cursor: 'pointer' }}>擷取</button>
-                      <button onClick={() => { setShowUrlInput(false); setUrlInput('') }}
-                        style={{ flex: 1, padding: '4px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '3px', color: '#958ea0', fontSize: '10px', cursor: 'pointer' }}>取消</button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Text Input */}
-                {showTextInput && (
-                  <div style={{ marginTop: '6px' }}>
-                    <textarea
-                      value={textInput}
-                      onChange={e => setTextInput(e.target.value)}
-                      placeholder="貼上文字內容..."
-                      rows={3}
-                      style={{ width: '100%', padding: '5px 8px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#fff', fontSize: '11px', boxSizing: 'border-box', resize: 'none' }}
-                    />
-                    <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
-                      <button onClick={handleImportText} disabled={sourceLoading || !textInput.trim()}
-                        style={{ flex: 1, padding: '4px', background: 'rgba(160,120,255,0.3)', border: 'none', borderRadius: '3px', color: '#d0bcff', fontSize: '10px', cursor: 'pointer' }}>儲存</button>
-                      <button onClick={() => { setShowTextInput(false); setTextInput('') }}
-                        style={{ flex: 1, padding: '4px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '3px', color: '#958ea0', fontSize: '10px', cursor: 'pointer' }}>取消</button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Add Source Buttons */}
-                <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
-                  <button onClick={handleImportPDF} disabled={sourceLoading}
-                    style={{ flex: 1, padding: '5px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#958ea0', fontSize: '10px', cursor: 'pointer' }}>+ PDF</button>
-                  <button onClick={() => setShowUrlInput(!showUrlInput)} disabled={sourceLoading}
-                    style={{ flex: 1, padding: '5px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#958ea0', fontSize: '10px', cursor: 'pointer' }}>+ 網址</button>
-                  <button onClick={() => setShowTextInput(!showTextInput)} disabled={sourceLoading}
-                    style={{ flex: 1, padding: '5px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#958ea0', fontSize: '10px', cursor: 'pointer' }}>+ 文字</button>
+            <div style={{ padding: '0 8px 8px', maxHeight: '200px', overflow: 'auto' }}>
+              {sources.map(src => (
+                <div key={src.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 8px', borderRadius: '6px', marginBottom: '4px', border: '0.5px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
+                  <span style={{ fontSize: '12px', flexShrink: 0 }}>
+                    {src.type === 'pdf' ? '📄' : src.type === 'url' ? '🔗' : '📝'}
+                  </span>
+                  <span style={{ color: '#e0d8e8', fontSize: '12px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {src.title}
+                  </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDeleteSource(src.id) }}
+                    style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '10px', cursor: 'pointer', padding: 0, opacity: 0.5 }}
+                  >✕</button>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Column 2: Notes */}
-      <div style={{
-        width: '280px', minWidth: '280px',
-        background: 'rgba(18, 33, 49, 0.7)',
-        borderRight: '1px solid rgba(255,255,255,0.1)',
-        display: 'flex', flexDirection: 'column',
-      }}>
-        <div style={{ padding: '12px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="搜尋筆記..."
-            style={{ width: '100%', padding: '8px 10px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', fontSize: '13px', boxSizing: 'border-box' }} />
-          {allTags.length > 0 && (
-            <div style={{ display: 'flex', gap: '4px', marginTop: '8px', flexWrap: 'wrap' }}>
-              {filterTag && (
-                <button onClick={() => setFilterTag(null)} style={{ padding: '2px 8px', borderRadius: '10px', background: 'rgba(160,120,255,0.3)', border: 'none', color: '#d0bcff', fontSize: '11px', cursor: 'pointer' }}>✕ 清除</button>
-              )}
-              {allTags.slice(0, 8).map(t => (
-                <button key={t.tag} onClick={() => setFilterTag(filterTag === t.tag ? null : t.tag)}
-                  style={{ padding: '2px 8px', borderRadius: '10px', border: 'none', fontSize: '11px', cursor: 'pointer', background: filterTag === t.tag ? 'rgba(160,120,255,0.4)' : 'rgba(255,255,255,0.05)', color: filterTag === t.tag ? '#d0bcff' : '#958ea0' }}>
-                  {t.tag} ({t.count})
-                </button>
               ))}
-            </div>
-          )}
-        </div>
-
-        {selectedNotebook && (
-          <div style={{ padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: '#958ea0', fontSize: '12px' }}>{displayNotes.length} 筆</span>
-            <button onClick={createNote} style={{ background: 'none', border: 'none', color: '#a078ff', fontSize: '13px', cursor: 'pointer' }}>+ 新增</button>
-          </div>
-        )}
-
-        <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
-          {displayNotes.map(note => (
-            <div key={note.id} onClick={() => selectNote(note)}
-              onMouseEnter={() => setHoveredNoteId(note.id)}
-              onMouseLeave={() => setHoveredNoteId(null)}
-              style={{ position: 'relative', padding: '10px 12px', borderRadius: '6px', cursor: 'pointer', marginBottom: '4px', background: selectedNote?.id === note.id ? 'rgba(160,120,255,0.15)' : 'transparent', border: selectedNote?.id === note.id ? '1px solid rgba(160,120,255,0.2)' : '1px solid transparent' }}>
-              {hoveredNoteId === note.id && (
-                <button onClick={e => { e.stopPropagation(); if (window.confirm(`確定要刪除「${note.title}」？此操作無法復原。`)) { deleteNote(note.id) } }}
-                  style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(239,68,68,0.8)', border: 'none', borderRadius: '4px', color: '#fff', fontSize: '11px', cursor: 'pointer', padding: '2px 6px', lineHeight: '14px', zIndex: 1 }}>✕</button>
+              {sources.length === 0 && (
+                <div style={{ color: '#958ea0', fontSize: '11px', textAlign: 'center', padding: '8px' }}>尚無來源</div>
               )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                {note.pinned && <span style={{ fontSize: '10px' }}>📌</span>}
-                <span style={{ color: '#fff', fontSize: '13px', fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{note.title}</span>
-              </div>
-              <div style={{ color: '#958ea0', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '4px' }}>
-                {note.content.substring(0, 80) || '空白筆記'}
-              </div>
-              {note.tags.length > 0 && (
-                <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
-                  {note.tags.slice(0, 3).map(tag => (
-                    <span key={tag} style={{ padding: '1px 6px', borderRadius: '8px', background: 'rgba(160,120,255,0.15)', color: '#b0a0c0', fontSize: '10px' }}>{tag}</span>
-                  ))}
-                  {note.tags.length > 3 && <span style={{ color: '#958ea0', fontSize: '10px' }}>+{note.tags.length - 3}</span>}
+
+              {showUrlInput && (
+                <div style={{ marginTop: '6px' }}>
+                  <input value={urlInput} onChange={e => setUrlInput(e.target.value)} placeholder="貼上網址..."
+                    onKeyDown={e => { if (e.key === 'Enter') handleImportURL() }}
+                    style={{ width: '100%', padding: '5px 8px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#fff', fontSize: '11px', boxSizing: 'border-box' }} />
+                  <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                    <button onClick={handleImportURL} disabled={sourceLoading || !urlInput.trim()}
+                      style={{ flex: 1, padding: '4px', background: 'rgba(160,120,255,0.3)', border: 'none', borderRadius: '3px', color: '#d0bcff', fontSize: '10px', cursor: 'pointer' }}>擷取</button>
+                    <button onClick={() => { setShowUrlInput(false); setUrlInput('') }}
+                      style={{ flex: 1, padding: '4px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '3px', color: '#958ea0', fontSize: '10px', cursor: 'pointer' }}>取消</button>
+                  </div>
                 </div>
               )}
+
+              {showTextInput && (
+                <div style={{ marginTop: '6px' }}>
+                  <textarea value={textInput} onChange={e => setTextInput(e.target.value)} placeholder="貼上文字內容..." rows={3}
+                    style={{ width: '100%', padding: '5px 8px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#fff', fontSize: '11px', boxSizing: 'border-box', resize: 'none' }} />
+                  <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                    <button onClick={handleImportText} disabled={sourceLoading || !textInput.trim()}
+                      style={{ flex: 1, padding: '4px', background: 'rgba(160,120,255,0.3)', border: 'none', borderRadius: '3px', color: '#d0bcff', fontSize: '10px', cursor: 'pointer' }}>儲存</button>
+                    <button onClick={() => { setShowTextInput(false); setTextInput('') }}
+                      style={{ flex: 1, padding: '4px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '3px', color: '#958ea0', fontSize: '10px', cursor: 'pointer' }}>取消</button>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ marginTop: '6px' }}>
+                <button onClick={() => { setShowUrlInput(!showUrlInput); setShowTextInput(false) }} disabled={sourceLoading}
+                  style={{ width: '100%', padding: '5px', background: 'rgba(255,255,255,0.04)', border: '0.5px dashed rgba(255,255,255,0.1)', borderRadius: '4px', color: '#958ea0', fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                  + 新增來源
+                </button>
+                {showUrlInput && (
+                  <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                    <button onClick={handleImportPDF} disabled={sourceLoading}
+                      style={{ flex: 1, padding: '4px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '3px', color: '#958ea0', fontSize: '10px', cursor: 'pointer' }}>PDF</button>
+                    <button onClick={() => { setShowUrlInput(true); setShowTextInput(false) }}
+                      style={{ flex: 1, padding: '4px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '3px', color: '#958ea0', fontSize: '10px', cursor: 'pointer' }}>網址</button>
+                    <button onClick={() => { setShowTextInput(true); setShowUrlInput(false) }}
+                      style={{ flex: 1, padding: '4px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '3px', color: '#958ea0', fontSize: '10px', cursor: 'pointer' }}>文字</button>
+                  </div>
+                )}
+              </div>
             </div>
-          ))}
-          {!selectedNotebook && (
-            <div style={{ textAlign: 'center', color: '#958ea0', padding: '40px 16px', fontSize: '13px' }}>選擇一個筆記本</div>
-          )}
-          {selectedNotebook && displayNotes.length === 0 && (
-            <div style={{ textAlign: 'center', color: '#958ea0', padding: '40px 16px', fontSize: '13px' }}>{searchQuery ? '找不到結果' : '尚無筆記'}</div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      {/* Column 3: Editor + Chat */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'rgba(12, 20, 30, 0.9)', minWidth: 0 }}>
+      {/* Column 2: Chat (main body) */}
+      <div style={{
+        display: 'flex', flexDirection: 'column',
+        background: 'rgba(12, 20, 30, 0.9)',
+        borderRight: '0.5px solid rgba(255,255,255,0.1)',
+        minWidth: 0,
+      }}>
         {selectedNote ? (
           <>
-            {/* Title bar */}
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Header */}
+            <div style={{ padding: '10px 16px', borderBottom: '0.5px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <input value={selectedNote.title}
                 onChange={e => { const v = e.target.value; setSelectedNote(p => p ? { ...p, title: v } : null); window.electronAPI.noteUpdate(selectedNote.id, { title: v }) }}
-                style={{ flex: 1, background: 'none', border: 'none', color: '#fff', fontSize: '16px', fontWeight: 600, outline: 'none' }} />
+                style={{ flex: 1, background: 'none', border: 'none', color: '#e0d8e8', fontSize: '15px', fontWeight: 500, outline: 'none' }} />
+              <span style={{ fontSize: '11px', color: '#958ea0', whiteSpace: 'nowrap' }}>{editContent.length} 字</span>
               <button onClick={() => setEditorMode(editorMode === 'edit' ? 'preview' : 'edit')}
-                style={{ padding: '4px 10px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.15)', background: editorMode === 'preview' ? 'rgba(160,120,255,0.2)' : 'rgba(255,255,255,0.05)', color: '#d0bcff', fontSize: '12px', cursor: 'pointer' }}>
-                {editorMode === 'edit' ? '👁 預覽' : '✏️ 編輯'}
+                style={{ padding: '4px 8px', borderRadius: '4px', border: '0.5px solid rgba(255,255,255,0.1)', background: editorMode === 'preview' ? 'rgba(160,120,255,0.15)' : 'rgba(255,255,255,0.04)', color: '#d0bcff', fontSize: '12px', cursor: 'pointer' }}>
+                {editorMode === 'edit' ? '👁' : '✏️'}
               </button>
-              <button onClick={summarizeNote} disabled={summaryLoading}
-                style={{ padding: '4px 10px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#958ea0', fontSize: '12px', cursor: summaryLoading ? 'wait' : 'pointer', opacity: summaryLoading ? 0.5 : 1 }}>
-                {summaryLoading ? '⏳' : '📝'} 摘要
-              </button>
-              <button onClick={extractTags} disabled={extractLoading}
-                style={{ padding: '4px 10px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#958ea0', fontSize: '12px', cursor: extractLoading ? 'wait' : 'pointer', opacity: extractLoading ? 0.5 : 1 }}>
-                {extractLoading ? '⏳' : '🏷️'} 提取標籤
-              </button>
-              <button onClick={generateOutline} disabled={outlineLoading}
-                style={{ padding: '4px 10px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#958ea0', fontSize: '12px', cursor: outlineLoading ? 'wait' : 'pointer', opacity: outlineLoading ? 0.5 : 1 }}>
-                {outlineLoading ? '⏳' : '📋'} 大綱
-              </button>
-              <button onClick={() => setShowChat(!showChat)}
-                style={{ padding: '4px 10px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.15)', background: showChat ? 'rgba(160,120,255,0.2)' : 'rgba(255,255,255,0.05)', color: '#d0bcff', fontSize: '12px', cursor: 'pointer' }}>
-                💬 對話
-              </button>
-              <button onClick={() => togglePin(selectedNote)} style={{ background: 'none', border: 'none', fontSize: '14px', cursor: 'pointer', opacity: selectedNote.pinned ? 1 : 0.4 }}>📌</button>
-              <button onClick={() => deleteNote(selectedNote.id)} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '14px', cursor: 'pointer', opacity: 0.6 }}>🗑️</button>
-              {obsidianVault && (
-                <button onClick={toggleAutoSync}
-                  style={{ padding: '4px 10px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.15)', background: syncing ? 'rgba(160,120,255,0.2)' : autoSync ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)', color: syncing ? '#a078ff' : autoSync ? '#10b981' : '#958ea0', fontSize: '11px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                  {syncing ? '⏳ 同步中...' : autoSync ? '✅ Obsidian 同步：開啟' : '🔄 Obsidian 同步：關閉'}
-                </button>
+            </div>
+
+            {/* Note preview (collapsible) */}
+            <div style={{ borderBottom: '0.5px solid rgba(255,255,255,0.1)' }}>
+              {editorMode === 'edit' ? (
+                <textarea value={editContent} onChange={e => setEditContent(e.target.value)} onBlur={saveNote}
+                  placeholder="支援 Markdown 語法..."
+                  style={{ width: '100%', height: '150px', background: 'rgba(0,0,0,0.2)', border: 'none', padding: '12px 16px', color: '#e0d8e8', fontSize: '13px', lineHeight: 1.7, resize: 'none', outline: 'none', fontFamily: "'Consolas', 'Monaco', monospace", boxSizing: 'border-box' }} />
+              ) : (
+                <div style={{ maxHeight: '150px', overflow: 'hidden', padding: '12px 16px', position: 'relative' }}>
+                  {editContent ? (
+                    <Markdown remarkPlugins={[remarkGfm]} components={{
+                      h1: ({ children }) => <h1 style={{ ...mdStyles.h1, fontSize: '18px' }}>{children}</h1>,
+                      h2: ({ children }) => <h2 style={{ ...mdStyles.h2, fontSize: '16px' }}>{children}</h2>,
+                      h3: ({ children }) => <h3 style={{ ...mdStyles.h3, fontSize: '14px' }}>{children}</h3>,
+                      p: ({ children }) => <p style={{ ...mdStyles.p, fontSize: '13px' }}>{children}</p>,
+                      li: ({ children }) => <li style={{ ...mdStyles.li, fontSize: '13px' }}>{children}</li>,
+                      code: MdCode, pre: MdPre,
+                      blockquote: ({ children }) => <blockquote style={mdStyles.blockquote}>{children}</blockquote>,
+                      a: ({ href, children }) => <a href={href} style={mdStyles.a} target="_blank" rel="noopener noreferrer">{children}</a>,
+                      table: ({ children }) => <table style={mdStyles.table}>{children}</table>,
+                      th: ({ children }) => <th style={mdStyles.th}>{children}</th>,
+                      td: ({ children }) => <td style={mdStyles.td}>{children}</td>,
+                      ul: ({ children }) => <ul style={mdStyles.ul}>{children}</ul>,
+                      ol: ({ children }) => <ol style={mdStyles.ol}>{children}</ol>,
+                      hr: () => <hr style={mdStyles.hr} />,
+                    }}>
+                      {editContent}
+                    </Markdown>
+                  ) : (
+                    <div style={{ color: '#958ea0', fontSize: '13px' }}>空白筆記</div>
+                  )}
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '40px', background: 'linear-gradient(transparent, rgba(12,20,30,0.95))' }} />
+                </div>
               )}
             </div>
 
             {/* Tags bar */}
-            <div style={{ padding: '8px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ padding: '6px 16px', borderBottom: '0.5px solid rgba(255,255,255,0.1)', display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
               {selectedNote.tags.map(tag => (
-                <span key={tag} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '10px', background: 'rgba(160,120,255,0.2)', color: '#d0bcff', fontSize: '11px' }}>
+                <span key={tag} style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '2px 7px', borderRadius: '10px', background: 'rgba(160,120,255,0.15)', color: '#b0a0c0', fontSize: '10px' }}>
                   {tag}
-                  <button onClick={() => removeTag(selectedNote, tag)} style={{ background: 'none', border: 'none', color: '#d0bcff', fontSize: '10px', cursor: 'pointer', padding: 0 }}>✕</button>
+                  <button onClick={() => removeTag(selectedNote, tag)} style={{ background: 'none', border: 'none', color: '#b0a0c0', fontSize: '9px', cursor: 'pointer', padding: 0 }}>✕</button>
                 </span>
               ))}
               <input placeholder="+ 標籤"
                 onKeyDown={e => { if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) { addTag(selectedNote, (e.target as HTMLInputElement).value.trim()); (e.target as HTMLInputElement).value = '' } }}
-                style={{ background: 'none', border: 'none', color: '#958ea0', fontSize: '11px', outline: 'none', width: '60px' }} />
+                style={{ background: 'none', border: 'none', color: '#958ea0', fontSize: '10px', outline: 'none', width: '50px' }} />
             </div>
 
-            {/* Main content area */}
-            <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-              {/* Editor / Preview + Summary */}
-              <div style={{ flex: showChat ? '0 0 60%' : '1', display: 'flex', flexDirection: 'column', padding: '16px', overflow: 'auto', minWidth: 0 }}>
-                {editorMode === 'edit' ? (
-                  <textarea value={editContent} onChange={e => setEditContent(e.target.value)} onBlur={saveNote} placeholder="支援 Markdown 語法..."
-                    style={{ flex: 1, background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '12px', color: '#fff', fontSize: '14px', lineHeight: 1.7, resize: 'none', outline: 'none', fontFamily: "'Consolas', 'Monaco', monospace" }} />
-                ) : (
-                  <div style={{ flex: 1, background: 'rgba(0,0,0,0.1)', borderRadius: '6px', padding: '16px', overflow: 'auto' }}>
-                    {editContent ? (
-                      <Markdown remarkPlugins={[remarkGfm]} components={{
-                        h1: ({ children }) => <h1 style={mdStyles.h1}>{children}</h1>,
-                        h2: ({ children }) => <h2 style={mdStyles.h2}>{children}</h2>,
-                        h3: ({ children }) => <h3 style={mdStyles.h3}>{children}</h3>,
-                        p: ({ children }) => <p style={mdStyles.p}>{children}</p>,
-                        li: ({ children }) => <li style={mdStyles.li}>{children}</li>,
-                        code: MdCode,
-                        pre: MdPre,
-                        blockquote: ({ children }) => <blockquote style={mdStyles.blockquote}>{children}</blockquote>,
-                        a: ({ href, children }) => <a href={href} style={mdStyles.a} target="_blank" rel="noopener noreferrer">{children}</a>,
-                        table: ({ children }) => <table style={mdStyles.table}>{children}</table>,
-                        th: ({ children }) => <th style={mdStyles.th}>{children}</th>,
-                        td: ({ children }) => <td style={mdStyles.td}>{children}</td>,
-                        ul: ({ children }) => <ul style={mdStyles.ul}>{children}</ul>,
-                        ol: ({ children }) => <ol style={mdStyles.ol}>{children}</ol>,
-                        hr: () => <hr style={mdStyles.hr} />,
-                      }}>
-                        {editContent}
-                      </Markdown>
-                    ) : (
-                      <div style={{ color: '#958ea0', fontSize: '14px' }}>空白筆記</div>
-                    )}
-                  </div>
-                )}
-
-                {/* Summary display (below editor) */}
-                {summary && (
-                  <div style={{ marginTop: '12px', padding: '12px', background: 'rgba(160,120,255,0.1)', borderRadius: '8px', border: '1px solid rgba(160,120,255,0.2)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span style={{ color: '#d0bcff', fontSize: '13px', fontWeight: 600 }}>📝 AI 摘要</span>
-                      <button onClick={() => setSummary('')} style={{ background: 'none', border: 'none', color: '#958ea0', fontSize: '11px', cursor: 'pointer' }}>✕ 關閉</button>
-                    </div>
-                    <div style={{ color: '#e0d8e8', fontSize: '13px', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{summary}</div>
-                  </div>
-                )}
-              </div>
-
-              {/* Chat panel */}
-              {showChat && (
-                <div style={{ flex: '0 0 40%', borderLeft: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', background: 'rgba(10, 16, 24, 0.95)', minWidth: 0 }}>
-                  <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontWeight: 600, color: '#d0bcff', fontSize: '13px' }}>💬 筆記對話</span>
-                    <button onClick={() => setShowChat(false)} style={{ background: 'none', border: 'none', color: '#958ea0', fontSize: '14px', cursor: 'pointer', padding: '0 4px' }}>✕</button>
-                  </div>
-                  <div style={{ flex: 1, overflow: 'auto', padding: '12px' }}>
-                    {chatMessages.length === 0 && (
-                      <div style={{ color: '#958ea0', fontSize: '12px', textAlign: 'center', padding: '20px' }}>
-                        基於這份筆記的內容<br/>向 AI 提問
-                      </div>
-                    )}
-                    {chatMessages.map((msg, i) => (
-                      <div key={i} style={{ marginBottom: '10px' }}>
-                        <div style={{ fontSize: '11px', color: msg.role === 'user' ? '#a078ff' : '#10b981', marginBottom: '4px', fontWeight: 600 }}>
-                          {msg.role === 'user' ? '你' : 'AI'}
-                        </div>
-                        <div style={{ fontSize: '13px', color: '#e0d8e8', lineHeight: 1.6, background: msg.role === 'user' ? 'rgba(160,120,255,0.1)' : 'rgba(16,185,129,0.1)', padding: '8px 10px', borderRadius: '6px' }}>
-                          {msg.content}
-                        </div>
-                      </div>
-                    ))}
-                    {chatLoading && (
-                      <div style={{ fontSize: '12px', color: '#958ea0', textAlign: 'center', padding: '8px' }}>
-                        <span style={{ animation: 'orch-spin 1s linear infinite', display: 'inline-block' }}>⟳</span> 思考中...
-                      </div>
-                    )}
-                    <div ref={chatEndRef} />
-                  </div>
-                  <div style={{ padding: '10px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <input value={chatInput} onChange={e => setChatInput(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat() } }}
-                        placeholder="問問題..." disabled={chatLoading}
-                        style={{ flex: 1, padding: '8px 10px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', fontSize: '13px', outline: 'none' }} />
-                      <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()}
-                        style={{ padding: '8px 12px', background: 'linear-gradient(135deg, #a078ff, #0566d9)', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '13px', cursor: chatLoading ? 'wait' : 'pointer', opacity: chatLoading || !chatInput.trim() ? 0.5 : 1 }}>
-                        送
-                      </button>
-                    </div>
-                  </div>
+            {/* Chat messages */}
+            <div style={{ flex: 1, overflow: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {chatMessages.length === 0 && (
+                <div style={{ color: '#958ea0', fontSize: '12px', textAlign: 'center', padding: '40px 20px', lineHeight: 1.8 }}>
+                  基於這份筆記的內容<br />向 AI 提問
                 </div>
               )}
+              {chatMessages.map((msg, i) => (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                  <div style={{ maxWidth: msg.role === 'user' ? '75%' : '90%' }}>
+                    {msg.role === 'assistant' && (
+                      <div style={{ fontSize: '10px', color: '#10b981', marginBottom: '3px', fontWeight: 600 }}>AI</div>
+                    )}
+                    <div style={{
+                      background: msg.role === 'user' ? '#EEEDFE' : 'rgba(255,255,255,0.04)',
+                      border: msg.role === 'user' ? '0.5px solid #CECBF6' : '0.5px solid rgba(255,255,255,0.06)',
+                      borderRadius: msg.role === 'user' ? '10px 10px 2px 10px' : '10px 10px 10px 2px',
+                      padding: msg.role === 'user' ? '8px 12px' : '10px 13px',
+                      fontSize: '13px', lineHeight: 1.6,
+                      color: msg.role === 'user' ? '#3C3489' : '#e0d8e8',
+                      whiteSpace: 'pre-wrap',
+                    }}>
+                      {msg.content}
+                    </div>
+                    {msg.type && msg.type !== 'chat' && msg.role === 'assistant' && (
+                      <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
+                        <button onClick={() => navigator.clipboard.writeText(msg.content)}
+                          style={{ padding: '3px 8px', borderRadius: '4px', border: '0.5px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#958ea0', fontSize: '10px', cursor: 'pointer' }}>複製</button>
+                        {msg.type === 'outline' && (
+                          <button onClick={() => { window.electronAPI.noteCreate(selectedNotebook!.id, `大綱 - ${selectedNote.title}`, msg.content); if (selectedNotebook) selectNotebook(selectedNotebook) }}
+                            style={{ padding: '3px 8px', borderRadius: '4px', border: '0.5px solid rgba(255,255,255,0.1)', background: 'rgba(160,120,255,0.15)', color: '#d0bcff', fontSize: '10px', cursor: 'pointer' }}>存為筆記</button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {chatLoading && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 0' }}>
+                  <span style={{ color: '#10b981', fontSize: '10px', fontWeight: 600 }}>AI</span>
+                  <span style={{ fontSize: '12px', color: '#958ea0' }}>
+                    <span style={{ animation: 'orch-spin 1s linear infinite', display: 'inline-block' }}>⟳</span> 思考中...
+                  </span>
+                </div>
+              )}
+              <div ref={chatEndRef} />
             </div>
 
-            {/* Status bar */}
-            <div style={{ padding: '6px 16px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: '#958ea0', fontSize: '11px' }}>{editContent.length} 字元</span>
-              <span style={{ color: '#958ea0', fontSize: '11px' }}>{new Date(selectedNote.updatedAt).toLocaleString()}</span>
+            {/* Input area */}
+            <div style={{ borderTop: '0.5px solid rgba(255,255,255,0.1)', padding: '10px 16px' }}>
+              <div style={{ display: 'flex', gap: '4px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                {[
+                  { label: '生成大綱', fn: () => generateOutline() },
+                  { label: '摘要全文', fn: () => summarizeNote() },
+                  { label: '提取標籤', fn: () => extractTags() },
+                  { label: '深入分析', fn: () => setChatInput('請深入分析這篇筆記的所有論點') },
+                ].map(({ label, fn }) => (
+                  <button key={label} onClick={fn}
+                    style={{ padding: '3px 10px', borderRadius: '12px', border: '0.5px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#958ea0', fontSize: '11px', cursor: 'pointer' }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <textarea value={chatInput} onChange={e => setChatInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat() } }}
+                  placeholder="問問題..." disabled={chatLoading} rows={1}
+                  style={{ flex: 1, padding: '8px 10px', background: 'rgba(0,0,0,0.3)', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#e0d8e8', fontSize: '13px', outline: 'none', resize: 'none', fontFamily: 'inherit' }} />
+                <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()}
+                  style={{ padding: '8px 14px', background: 'linear-gradient(135deg, #a078ff, #0566d9)', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '13px', cursor: chatLoading ? 'wait' : 'pointer', opacity: chatLoading || !chatInput.trim() ? 0.5 : 1, alignSelf: 'flex-end' }}>
+                  送
+                </button>
+              </div>
             </div>
           </>
         ) : (
@@ -850,6 +734,78 @@ export default function NotebookPage() {
             選擇或建立一筆筆記開始編輯
           </div>
         )}
+      </div>
+
+      {/* Column 3: Tools + Notes */}
+      <div style={{
+        display: 'flex', flexDirection: 'column',
+        background: 'rgba(18, 33, 49, 0.7)',
+        overflow: 'hidden',
+      }}>
+        {/* Tools Header */}
+        <div style={{ padding: '12px 12px 8px' }}>
+          <span style={{ fontWeight: 600, color: 'var(--color-text-secondary, #958ea0)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tools</span>
+        </div>
+
+        {/* Tool Cards Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', padding: '0 8px 8px' }}>
+          {[
+            { icon: '🌳', label: '大綱生成', color: '#a078ff', fn: () => generateOutline(), loading: outlineLoading },
+            { icon: '📝', label: '全文摘要', color: '#10b981', fn: () => summarizeNote(), loading: summaryLoading },
+            { icon: '🏷️', label: '標籤提取', color: '#f59e0b', fn: () => extractTags(), loading: extractLoading },
+            { icon: '💬', label: '深度對話', color: '#0566d9', fn: () => { document.querySelector<HTMLInputElement>('[placeholder="問問題..."]')?.focus() }, loading: false },
+          ].map(({ icon, label, color, fn, loading }) => (
+            <button key={label} onClick={fn} disabled={loading}
+              style={{ padding: '10px 8px', borderRadius: '8px', border: '0.5px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.03)', cursor: loading ? 'wait' : 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', opacity: loading ? 0.5 : 1 }}>
+              <span style={{ fontSize: '16px' }}>{loading ? '⏳' : icon}</span>
+              <span style={{ fontSize: '10px', color: '#958ea0' }}>{label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Notes Header */}
+        <div style={{ padding: '8px 12px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontWeight: 600, color: 'var(--color-text-secondary, #958ea0)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes</span>
+          <button onClick={createNote} style={{ background: 'none', border: 'none', color: '#a078ff', fontSize: '14px', cursor: 'pointer', padding: '2px 4px' }}>+</button>
+        </div>
+
+        {/* Notes List */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 8px' }}>
+          {notes.map(note => (
+            <div key={note.id} onClick={() => selectNote(note)}
+              style={{
+                padding: '6px 8px', borderRadius: '6px', cursor: 'pointer', marginBottom: '2px',
+                background: selectedNote?.id === note.id ? 'rgba(160,120,255,0.1)' : 'transparent',
+                border: selectedNote?.id === note.id ? '0.5px solid rgba(160,120,255,0.2)' : '0.5px solid transparent',
+              }}>
+              <div style={{ fontSize: '12px', fontWeight: 500, color: '#e0d8e8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {note.pinned && <span style={{ fontSize: '9px', marginRight: '3px' }}>📌</span>}
+                {note.title}
+              </div>
+              <div style={{ fontSize: '10px', color: '#958ea0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '1px' }}>
+                {note.content.substring(0, 40) || '空白筆記'}
+              </div>
+            </div>
+          ))}
+          {notes.length === 0 && selectedNotebook && (
+            <div style={{ textAlign: 'center', color: '#958ea0', padding: '20px 8px', fontSize: '11px' }}>尚無筆記</div>
+          )}
+          {!selectedNotebook && (
+            <div style={{ textAlign: 'center', color: '#958ea0', padding: '20px 8px', fontSize: '11px' }}>選擇一個筆記本</div>
+          )}
+          <button onClick={createNote} disabled={!selectedNotebook}
+            style={{ width: '100%', padding: '6px', marginTop: '4px', borderRadius: '6px', border: '0.5px dashed rgba(255,255,255,0.1)', background: 'transparent', color: '#958ea0', fontSize: '11px', cursor: selectedNotebook ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', opacity: selectedNotebook ? 1 : 0.4 }}>
+            + 新增筆記
+          </button>
+        </div>
+
+        {/* Fusion Button */}
+        <div style={{ padding: '8px' }}>
+          <button onClick={() => setChatInput('請用 Fusion 模式深度分析這篇筆記的所有論點')}
+            style={{ width: '100%', padding: '8px', borderRadius: '8px', background: '#7F77DD', border: 'none', color: '#fff', fontSize: '12px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+            ✨ Fusion 深度分析
+          </button>
+        </div>
       </div>
     </div>
   )
