@@ -137,6 +137,10 @@ npm run build
 
 ---
 
+## Roadmap
+
+開發方向與規劃，見 [ROADMAP.md](ROADMAP.md)。
+
 ## 貢獻
 
 歡迎 PR 和 Issue。詳見 [CONTRIBUTING.md](CONTRIBUTING.md)。
