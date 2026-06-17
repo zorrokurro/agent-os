@@ -6,14 +6,13 @@ import ResearchPage from './components/ResearchPage';
 import StorePage from './components/StorePage';
 import SettingsPage from './components/SettingsPage';
 import UMPage from './components/UMPage';
-import SystemAgentsPage from './components/SystemAgentsPage';
 import OrchestratorPage from './pages/OrchestratorPage';
 import CouncilPage from './components/CouncilPage';
 import NotebookPage from './components/NotebookPage';
 import CurrentTimeButton from './components/CurrentTimeButton';
 import BrainLayout from './components/brain/BrainLayout';
 
-type PageKey = 'brain' | 'library' | 'memory' | 'research' | 'store' | 'ump' | 'sysagents' | 'settings' | 'orchestrator' | 'council' | 'notebook'
+type PageKey = 'brain' | 'library' | 'memory' | 'research' | 'store' | 'ump' | 'settings' | 'orchestrator' | 'council' | 'notebook'
 
 function applyDarkClass(darkMode: boolean) {
   if (darkMode) {
@@ -92,7 +91,6 @@ function App() {
           <div style={{ margin: '12px 8px', borderTop: '1px solid rgba(255,255,255,0.1)' }} />
           <NavButton active={page === 'store'} onClick={() => setPage('store')} icon="download" label="安裝器" />
           <NavButton active={page === 'ump'} onClick={() => setPage('ump')} icon="hub" label="UMP 記憶協議" />
-          <NavButton active={page === 'sysagents'} onClick={() => setPage('sysagents')} icon="radar" label="系統 Agent 偵測" />
           <div style={{ margin: '12px 8px', borderTop: '1px solid rgba(255,255,255,0.1)' }} />
           <NavButton active={page === 'orchestrator'} onClick={() => setPage('orchestrator')} icon="hub" label="Orchestrator" />
           <NavButton active={page === 'council'} onClick={() => setPage('council')} icon="groups" label="LLM Council" />
@@ -109,13 +107,12 @@ function App() {
         <div className="drag-region h-10 shrink-0" style={{ background: 'rgba(5, 20, 36, 0.7)', borderBottom: '1px solid rgba(255,255,255,0.05)' }} />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
           {page === 'brain' && <BrainLayout onNavigate={setPage} />}
-          {page === 'library' && <LibraryPage onInstall={() => setShowInstall(true)} />}
+          {page === 'library' && <LibraryPage onInstall={() => setShowInstall(true)} onNavigate={setPage} />}
           {page === 'memory' && <MemoryPage />}
           {page === 'notebook' && <NotebookPage />}
           {page === 'research' && <ResearchPage />}
           {page === 'store' && <StorePage />}
           {page === 'ump' && <UMPage />}
-          {page === 'sysagents' && <SystemAgentsPage />}
           {page === 'orchestrator' && <OrchestratorPage />}
           {page === 'council' && <CouncilPage />}
           {page === 'settings' && <SettingsPage />}

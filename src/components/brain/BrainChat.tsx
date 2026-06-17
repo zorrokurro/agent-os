@@ -12,7 +12,7 @@ interface Message {
   usedFusion?: boolean
 }
 
-type PageKey = 'brain' | 'library' | 'memory' | 'research' | 'store' | 'ump' | 'sysagents' | 'settings' | 'orchestrator' | 'council' | 'notebook'
+type PageKey = 'brain' | 'library' | 'memory' | 'research' | 'store' | 'ump' | 'settings' | 'orchestrator' | 'council' | 'notebook'
 
 interface BrainChatProps {
   onNavigate: (page: PageKey) => void

@@ -7,7 +7,9 @@ import { formatModelLabel } from '../hooks/useModelConfig'
 // ---------------------------------------------------------------------------
 type LibraryTab = 'all' | 'favorites'
 
-function LibraryPage({ onInstall }: { onInstall: () => void }) {
+type PageKey = 'brain' | 'library' | 'memory' | 'research' | 'store' | 'ump' | 'settings' | 'orchestrator' | 'council' | 'notebook'
+
+function LibraryPage({ onInstall, onNavigate }: { onInstall: () => void; onNavigate?: (page: PageKey) => void }) {
   const [agents, setAgents] = useState<AgentInfo[]>([])
   const [favorites, setFavorites] = useState<string[]>([])
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
@@ -15,10 +17,6 @@ function LibraryPage({ onInstall }: { onInstall: () => void }) {
   const [tab, setTab] = useState<'controls' | 'logs' | 'config' | 'docs'>('controls')
   const [ollamaStatus, setOllamaStatus] = useState<{ installed: boolean; running: boolean }>({ installed: false, running: false })
   const [agentStatuses, setAgentStatuses] = useState<Record<string, string>>({})
-  const [showImport, setShowImport] = useState(false)
-  const [importUrl, setImportUrl] = useState('')
-  const [importing, setImporting] = useState(false)
-  const [importResult, setImportResult] = useState<{ success: boolean; message: string } | null>(null)
   const selectedAgentRef = useRef(selectedAgent)
   selectedAgentRef.current = selectedAgent
 
@@ -49,25 +47,6 @@ function LibraryPage({ onInstall }: { onInstall: () => void }) {
   const checkOllama = useCallback(async () => {
     setOllamaStatus(await window.electronAPI.checkOllama())
   }, [])
-
-  // ------------------------------------------------------------------
-  // GitHub 匯入
-  // ------------------------------------------------------------------
-  const handleImport = async () => {
-    if (!importUrl.trim()) return
-    setImporting(true)
-    setImportResult(null)
-    try {
-      const result = await window.electronAPI.importAgentFromGitHub(importUrl.trim()) as { success: boolean; message: string }
-      setImportResult({ success: result.success, message: result.message })
-      if (result.success) {
-        // 匯入成功 → 刷新列表
-        await loadAgents()
-        setTimeout(() => { setShowImport(false); setImportResult(null) }, 2000)
-      }
-    } catch (e: unknown) { setImportResult({ success: false, message: String(e) }) }
-    setImporting(false)
-  }
 
   useEffect(() => {
     loadAgents()
@@ -224,8 +203,7 @@ function LibraryPage({ onInstall }: { onInstall: () => void }) {
 
         {/* 底部操作 */}
         <div style={{ padding: '12px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <button className="btn-secondary btn-sm" style={{ width: '100%', padding: '8px', fontSize: '13px' }} onClick={() => setShowImport(true)}>📦 從 GitHub 匯入</button>
-          <button className="btn-primary btn-sm" style={{ width: '100%', padding: '8px', fontSize: '13px' }} onClick={onInstall}>➕ 安裝精靈</button>
+          <button className="btn-primary btn-sm" style={{ width: '100%', padding: '8px', fontSize: '13px' }} onClick={onInstall}>➕ 安裝新 Agent</button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
             <span className={`status-dot ${ollamaStatus.running ? 'running' : ollamaStatus.installed ? 'stopped' : 'error'}`} />
             <span style={{ color: '#958ea0' }}>Ollama {ollamaStatus.running ? '運行中' : ollamaStatus.installed ? '已停止' : '未安裝'}</span>
@@ -233,40 +211,6 @@ function LibraryPage({ onInstall }: { onInstall: () => void }) {
           </div>
         </div>
       </div>
-
-      {/* ============================================================
-          GitHub 匯入 Modal
-          ============================================================ */}
-      {showImport && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }} onClick={() => setShowImport(false)} />
-          <div className="glass-panel" style={{ position: 'relative', width: '460px', padding: '28px', borderRadius: '0.75rem', background: 'rgba(18,33,49,0.95)', border: '1px solid rgba(208,188,255,0.3)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#d0bcff' }}>📦 從 GitHub 匯入 Agent</h2>
-              <button onClick={() => setShowImport(false)} style={{ background: 'none', border: 'none', color: '#958ea0', fontSize: '18px', cursor: 'pointer' }}>✕</button>
-            </div>
-            <p style={{ fontSize: '13px', color: '#958ea0', marginBottom: '14px' }}>
-              輸入 GitHub repo URL，例如：<br /><code style={{ color: '#d0bcff' }}>https://github.com/user/agent-repo</code>
-            </p>
-            <input
-              value={importUrl}
-              onChange={e => setImportUrl(e.target.value)}
-              placeholder="https://github.com/username/agent-repo"
-              onKeyDown={e => e.key === 'Enter' && handleImport()}
-              style={{ width: '100%', padding: '10px 14px', borderRadius: '0.5rem', background: '#0d1c2d', border: '1px solid rgba(255,255,255,0.1)', color: '#d4e4fa', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
-            />
-            {importResult && (
-              <div style={{ marginTop: '10px', padding: '8px 12px', borderRadius: '0.5rem', background: importResult.success ? 'rgba(92,138,42,0.15)' : 'rgba(196,58,58,0.15)', color: importResult.success ? '#5c8a2a' : '#c43a3a', fontSize: '13px' }}>
-                {importResult.message}
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: '10px', marginTop: '18px', justifyContent: 'flex-end' }}>
-              <button className="btn-secondary" onClick={() => setShowImport(false)} style={{ padding: '8px 16px', fontSize: '13px' }}>取消</button>
-              <button className="btn-primary" onClick={handleImport} disabled={importing} style={{ padding: '8px 16px', fontSize: '13px' }}>{importing ? '匯入中...' : '匯入'}</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ============================================================
           右側面板：Agent 詳情

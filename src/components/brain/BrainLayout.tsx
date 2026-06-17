@@ -2,7 +2,7 @@ import BrainChat from './BrainChat'
 import AgentPanel from './AgentPanel'
 
 interface BrainLayoutProps {
-  onNavigate: (page: 'brain' | 'library' | 'memory' | 'research' | 'store' | 'ump' | 'sysagents' | 'settings' | 'orchestrator' | 'council' | 'notebook') => void
+  onNavigate: (page: 'brain' | 'library' | 'memory' | 'research' | 'store' | 'ump' | 'settings' | 'orchestrator' | 'council' | 'notebook') => void
 }
 
 export default function BrainLayout({ onNavigate }: BrainLayoutProps) {

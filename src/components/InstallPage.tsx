@@ -16,7 +16,37 @@ interface GithubAnalysis {
   installCommands: string[]
 }
 
+interface SystemAgent {
+  id: string
+  name: string
+  source: 'ollama' | 'pip' | 'npm' | 'path' | 'docker' | 'directory' | 'standalone'
+  version: string
+  description: string
+  installed: boolean
+  running: boolean
+  details: Record<string, unknown>
+}
+
 const STEPS = ['硬體偵測', '選擇 Agent', '模式設定', '安裝']
+
+const SOURCE_COLORS: Record<string, string> = {
+  ollama: '#0566d9', pip: '#3572A5', npm: '#cb3837', path: '#5c8a2a',
+  docker: '#2496ED', directory: '#d0bcff', standalone: '#ff9800',
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  ollama: 'Ollama', pip: 'Python (pip)', npm: 'npm', path: 'PATH',
+  docker: 'Docker', directory: '本機目錄', standalone: '獨立安裝',
+}
+
+function tabStyle(active: boolean) {
+  return {
+    padding: '10px 14px', fontSize: 13, fontWeight: 500 as const,
+    color: active ? '#534AB7' : '#958ea0',
+    borderBottom: active ? '2px solid #7F77DD' : '2px solid transparent',
+    background: 'none', border: 'none', cursor: 'pointer' as const,
+  }
+}
 
 function InstallPage({ onComplete, onClose }: { onComplete: () => void; onClose: () => void }) {
   const [hardware, setHardware] = useState<HardwareInfo | null>(null)
@@ -39,6 +69,13 @@ function InstallPage({ onComplete, onClose }: { onComplete: () => void; onClose:
   const [githubLoading, setGithubLoading] = useState(false)
   const [githubInstalling, setGithubInstalling] = useState(false)
   const [githubLogs, setGithubLogs] = useState<string[]>([])
+  const [installTab, setInstallTab] = useState<'github' | 'system'>('github')
+  const [systemAgents, setSystemAgents] = useState<SystemAgent[]>([])
+  const [customDirs, setCustomDirs] = useState('')
+  const [systemScanLoading, setSystemScanLoading] = useState(false)
+  const [systemFilter, setSystemFilter] = useState<string>('all')
+  const [addedSystemAgents, setAddedSystemAgents] = useState<Set<string>>(new Set())
+  const [addingSystemAgent, setAddingSystemAgent] = useState<string | null>(null)
 
   const loadAvailableAgents = async () => {
     try {
@@ -80,6 +117,46 @@ function InstallPage({ onComplete, onClose }: { onComplete: () => void; onClose:
     }
   }
 
+  const loadSystemAgents = async () => {
+    setSystemScanLoading(true)
+    try {
+      const result = await window.electronAPI.systemDetectAll()
+      setSystemAgents(result)
+    } catch { /* ignore */ }
+    setSystemScanLoading(false)
+  }
+
+  const handleScanDirs = async () => {
+    if (!customDirs.trim()) return
+    const dirs = customDirs.split('\n').map(d => d.trim()).filter(Boolean)
+    setSystemScanLoading(true)
+    try {
+      const result = await window.electronAPI.systemDetectDirectories(dirs)
+      setSystemAgents(prev => {
+        const existingIds = new Set(prev.map(a => a.id))
+        return [...prev, ...result.filter(a => !existingIds.has(a.id))]
+      })
+    } catch { /* ignore */ }
+    setSystemScanLoading(false)
+  }
+
+  const handleInstallFromSystem = async (agent: SystemAgent) => {
+    setAddingSystemAgent(agent.id)
+    try {
+      const result = await window.electronAPI.systemAddToLibrary({
+        id: agent.id, name: agent.name, description: agent.description,
+        version: agent.version, icon: agent.details?.icon as string || '🤖',
+        configDirs: agent.details?.configDirs as string[] || [],
+        dataDirs: agent.details?.dataDirs as string[] || [],
+      })
+      if (result.success) {
+        setAddedSystemAgents(prev => new Set([...prev, agent.id]))
+        loadAvailableAgents()
+      }
+    } catch { /* ignore */ }
+    setAddingSystemAgent(null)
+  }
+
   useEffect(() => {
     window.electronAPI.getHardwareInfo().then((h) => {
       setHardware(h)
@@ -91,6 +168,7 @@ function InstallPage({ onComplete, onClose }: { onComplete: () => void; onClose:
 
   useEffect(() => {
     loadAvailableAgents()
+    loadSystemAgents()
   }, [])
 
   useEffect(() => {
@@ -138,6 +216,9 @@ function InstallPage({ onComplete, onClose }: { onComplete: () => void; onClose:
     } catch (e) { setError(String(e)) } finally { setInstalling(false) }
   }
 
+  const filteredSystemAgents = systemFilter === 'all' ? systemAgents : systemAgents.filter(a => a.source === systemFilter)
+  const bySource = systemAgents.reduce((acc, a) => { acc[a.source] = (acc[a.source] || 0) + 1; return acc }, {} as Record<string, number>)
+
   if (done) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
@@ -171,54 +252,97 @@ function InstallPage({ onComplete, onClose }: { onComplete: () => void; onClose:
         <p className="text-sm mt-1" style={{ color: '#958ea0' }}>回答幾個問題，我們將自動完成所有設定</p>
       </div>
 
-      {/* GitHub 匯入區塊 */}
-      <div style={{ padding: '16px 24px', borderBottom: '0.5px solid rgba(255,255,255,0.1)' }}>
-        <div style={{ fontSize: 12, fontWeight: 500, color: '#958ea0', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.04em' }}>
-          從 GitHub 匯入 Agent
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input
-            value={githubUrl}
-            onChange={e => setGithubUrl(e.target.value)}
-            placeholder="https://github.com/username/repo"
-            style={{ flex: 1, padding: '8px 12px', borderRadius: 6, border: '0.5px solid rgba(255,255,255,0.1)', background: '#0d1c2d', color: '#d4e4fa', fontSize: 13 }}
-          />
-          <button
-            onClick={handleAnalyze}
-            disabled={!githubUrl.trim() || githubLoading}
-            style={{ padding: '8px 16px', borderRadius: 6, background: '#7F77DD', border: 'none', color: '#fff', fontSize: 13, cursor: 'pointer', opacity: githubLoading ? 0.6 : 1 }}
-          >
-            {githubLoading ? '分析中...' : '分析'}
-          </button>
-        </div>
+      {/* 匯入/掃描 Tab */}
+      <div style={{ display: 'flex', gap: 4, padding: '0 24px', borderBottom: '0.5px solid rgba(255,255,255,0.1)' }}>
+        <button onClick={() => setInstallTab('github')} style={tabStyle(installTab === 'github')}>從 GitHub 匯入</button>
+        <button onClick={() => setInstallTab('system')} style={tabStyle(installTab === 'system')}>系統掃描</button>
+      </div>
 
-        {githubAnalysis && (
-          <div style={{ marginTop: 12, padding: 12, background: '#0d1c2d', borderRadius: 6, border: '0.5px solid rgba(255,255,255,0.1)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 14, fontWeight: 500, color: '#d4e4fa' }}>{githubAnalysis.name}</span>
-              <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 20, background: '#EEEDFE', color: '#534AB7' }}>
-                {githubAnalysis.stack}
-              </span>
-            </div>
-            <div style={{ fontSize: 12, color: '#958ea0', marginBottom: 10, lineHeight: 1.5 }}>
-              {githubAnalysis.description}
-            </div>
-            <button
-              onClick={handleGithubInstall}
-              disabled={githubInstalling}
-              style={{ padding: '7px 16px', borderRadius: 6, background: '#7F77DD', border: 'none', color: '#fff', fontSize: 12, cursor: 'pointer' }}
-            >
-              {githubInstalling ? '安裝中...' : '安裝此 Agent'}
+      {/* GitHub 匯入 Tab */}
+      {installTab === 'github' && (
+        <div style={{ padding: '16px 24px', borderBottom: '0.5px solid rgba(255,255,255,0.1)' }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input value={githubUrl} onChange={e => setGithubUrl(e.target.value)} placeholder="https://github.com/username/repo"
+              style={{ flex: 1, padding: '8px 12px', borderRadius: 6, border: '0.5px solid rgba(255,255,255,0.1)', background: '#0d1c2d', color: '#d4e4fa', fontSize: 13 }} />
+            <button onClick={handleAnalyze} disabled={!githubUrl.trim() || githubLoading}
+              style={{ padding: '8px 16px', borderRadius: 6, background: '#7F77DD', border: 'none', color: '#fff', fontSize: 13, cursor: 'pointer', opacity: githubLoading ? 0.6 : 1 }}>
+              {githubLoading ? '分析中...' : '分析'}
             </button>
           </div>
-        )}
+          {githubAnalysis && (
+            <div style={{ marginTop: 12, padding: 12, background: '#0d1c2d', borderRadius: 6, border: '0.5px solid rgba(255,255,255,0.1)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <span style={{ fontSize: 14, fontWeight: 500, color: '#d4e4fa' }}>{githubAnalysis.name}</span>
+                <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 20, background: '#EEEDFE', color: '#534AB7' }}>{githubAnalysis.stack}</span>
+              </div>
+              <div style={{ fontSize: 12, color: '#958ea0', marginBottom: 10, lineHeight: 1.5 }}>{githubAnalysis.description}</div>
+              <button onClick={handleGithubInstall} disabled={githubInstalling}
+                style={{ padding: '7px 16px', borderRadius: 6, background: '#7F77DD', border: 'none', color: '#fff', fontSize: 12, cursor: 'pointer' }}>
+                {githubInstalling ? '安裝中...' : '安裝此 Agent'}
+              </button>
+            </div>
+          )}
+          {githubLogs.length > 0 && (
+            <div style={{ marginTop: 8, padding: '8px 10px', background: '#0a0a0a', borderRadius: 6, fontFamily: 'monospace', fontSize: 11, color: '#aaa', maxHeight: 120, overflowY: 'auto' }}>
+              {githubLogs.map((log, i) => <div key={i}>{log}</div>)}
+            </div>
+          )}
+        </div>
+      )}
 
-        {githubLogs.length > 0 && (
-          <div style={{ marginTop: 8, padding: '8px 10px', background: '#0a0a0a', borderRadius: 6, fontFamily: 'monospace', fontSize: 11, color: '#aaa', maxHeight: 120, overflowY: 'auto' }}>
-            {githubLogs.map((log, i) => <div key={i}>{log}</div>)}
+      {/* 系統掃描 Tab */}
+      {installTab === 'system' && (
+        <div style={{ padding: '16px 24px', borderBottom: '0.5px solid rgba(255,255,255,0.1)' }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+            <button onClick={() => setSystemFilter('all')}
+              style={{ padding: '4px 12px', borderRadius: 20, fontSize: 12, border: 'none', cursor: 'pointer', background: systemFilter === 'all' ? 'rgba(208,188,255,0.2)' : 'rgba(39,54,71,0.6)', color: systemFilter === 'all' ? '#d0bcff' : '#958ea0', fontWeight: systemFilter === 'all' ? 600 : 400 }}>
+              全部 ({systemAgents.length})
+            </button>
+            {Object.entries(bySource).map(([source, count]) => (
+              <button key={source} onClick={() => setSystemFilter(source)}
+                style={{ padding: '4px 12px', borderRadius: 20, fontSize: 12, border: 'none', cursor: 'pointer', background: systemFilter === source ? `${SOURCE_COLORS[source]}33` : 'rgba(39,54,71,0.6)', color: systemFilter === source ? SOURCE_COLORS[source] : '#958ea0', fontWeight: systemFilter === source ? 600 : 400 }}>
+                {SOURCE_LABELS[source] || source} ({count})
+              </button>
+            ))}
           </div>
-        )}
-      </div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            <textarea value={customDirs} onChange={e => setCustomDirs(e.target.value)} rows={2} placeholder={"C:\\Users\\username\\agent-dir\nD:\\ai-projects"}
+              style={{ flex: 1, padding: 8, borderRadius: 6, background: '#0d1c2d', border: '0.5px solid rgba(255,255,255,0.1)', color: '#d4e4fa', fontSize: 12, fontFamily: 'JetBrains Mono, monospace', resize: 'vertical' }} />
+            <button onClick={handleScanDirs} disabled={systemScanLoading || !customDirs.trim()}
+              style={{ padding: '8px 16px', borderRadius: 6, background: '#7F77DD', border: 'none', color: '#fff', fontSize: 12, cursor: 'pointer', alignSelf: 'flex-start' }}>
+              掃描
+            </button>
+          </div>
+          <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+            {filteredSystemAgents.map(agent => (
+              <div key={agent.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 6, marginBottom: 4, background: '#0d1c2d', border: '0.5px solid rgba(255,255,255,0.1)' }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: agent.running ? '#5c8a2a' : SOURCE_COLORS[agent.source] || '#958ea0', flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 500, color: '#d4e4fa' }}>{agent.name}</span>
+                    <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 20, background: `${SOURCE_COLORS[agent.source]}22`, color: SOURCE_COLORS[agent.source] }}>{SOURCE_LABELS[agent.source]}</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: '#958ea0', marginTop: 1 }}>{agent.description}</div>
+                </div>
+                {agent.source === 'standalone' && (
+                  addedSystemAgents.has(agent.id) ? (
+                    <span style={{ fontSize: 10, color: '#5c8a2a' }}>✓ 已加入</span>
+                  ) : (
+                    <button onClick={() => handleInstallFromSystem(agent)} disabled={addingSystemAgent === agent.id}
+                      style={{ padding: '4px 10px', borderRadius: 6, background: '#7F77DD', border: 'none', color: '#fff', fontSize: 11, cursor: 'pointer' }}>
+                      {addingSystemAgent === agent.id ? '...' : '安裝'}
+                    </button>
+                  )
+                )}
+              </div>
+            ))}
+          </div>
+          <button onClick={loadSystemAgents} disabled={systemScanLoading}
+            style={{ marginTop: 8, padding: '6px 14px', borderRadius: 6, background: 'rgba(39,54,71,0.6)', border: 'none', color: '#958ea0', fontSize: 12, cursor: 'pointer' }}>
+            {systemScanLoading ? '掃描中...' : '重新掃描'}
+          </button>
+        </div>
+      )}
 
       {/* Step Indicator */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 0, padding: '16px 24px', borderBottom: '0.5px solid rgba(255,255,255,0.1)' }}>
@@ -245,7 +369,6 @@ function InstallPage({ onComplete, onClose }: { onComplete: () => void; onClose:
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '20px', minHeight: 0 }} className="space-y-5">
-        {/* 硬體資訊 */}
         {hardware && (
           <div className="card">
             <h2 className="text-sm font-semibold mb-3" style={{ color: '#d4e4fa' }}>📊 硬體偵測結果</h2>
@@ -258,25 +381,15 @@ function InstallPage({ onComplete, onClose }: { onComplete: () => void; onClose:
           </div>
         )}
 
-        {/* GPU 選擇 */}
         {(hardware && (hardware.allGpus.length > 0 || hardware.gpu !== 'Unknown GPU')) && (
           <div className="card">
             <h2 className="text-sm font-semibold mb-3" style={{ color: '#d4e4fa' }}>🎮 選擇要使用的 GPU</h2>
             <div className="space-y-2">
               {(hardware.allGpus.length > 0 ? hardware.allGpus : [{
-                model: hardware.gpu,
-                vendor: '',
-                vramMB: hardware.vramGB * 1024,
-                isActive: true,
-                isDedicated: false,
+                model: hardware.gpu, vendor: '', vramMB: hardware.vramGB * 1024, isActive: true, isDedicated: false,
               }]).map((gpu, idx) => (
-                <label key={idx}
-                  className="flex items-center gap-3 p-3 rounded cursor-pointer transition"
-                  style={{
-                    background: options.selectedGpuIndex === idx ? 'rgba(208,188,255,0.1)' : '#0d1c2d',
-                    border: `1px solid ${options.selectedGpuIndex === idx ? 'rgba(208,188,255,0.3)' : 'rgba(255,255,255,0.1)'}`,
-                  }}
-                >
+                <label key={idx} className="flex items-center gap-3 p-3 rounded cursor-pointer transition"
+                  style={{ background: options.selectedGpuIndex === idx ? 'rgba(208,188,255,0.1)' : '#0d1c2d', border: `1px solid ${options.selectedGpuIndex === idx ? 'rgba(208,188,255,0.3)' : 'rgba(255,255,255,0.1)'}` }}>
                   <input type="radio" name="gpu-select" checked={options.selectedGpuIndex === idx}
                     onChange={() => setOptions(o => ({ ...o, selectedGpuIndex: idx }))} className="w-4 h-4" />
                   <div className="min-w-0">
@@ -293,52 +406,31 @@ function InstallPage({ onComplete, onClose }: { onComplete: () => void; onClose:
                 </label>
               ))}
             </div>
-            <div className="mt-3 p-2 rounded text-sm" style={{ background: 'rgba(208,188,255,0.08)' }}>
-              <span style={{ color: '#d0bcff' }}>💡 提示：</span>
-              <span className="text-xs ml-1" style={{ color: '#958ea0' }}>若獨顯顯示「休眠中」，其 VRAM 來自 WMI 資料，仍可用於模型推薦。</span>
-            </div>
           </div>
         )}
 
-        {/* Agent 選擇 */}
         <div className="card">
           <h2 className="text-sm font-semibold mb-3" style={{ color: '#d4e4fa' }}>🤖 選擇要安裝的 Agent</h2>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {availableAgents.map(agent => (
-              <div
-                key={agent.id}
-                onClick={() => toggleAgent(agent.id)}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 6,
-                  border: `0.5px solid ${selectedAgents.includes(agent.id) ? '#7F77DD' : 'rgba(255,255,255,0.1)'}`,
-                  background: selectedAgents.includes(agent.id) ? '#EEEDFE' : '#0d1c2d',
-                  cursor: 'pointer',
-                }}
-              >
+              <div key={agent.id} onClick={() => toggleAgent(agent.id)}
+                style={{ padding: '10px 12px', borderRadius: 6, border: `0.5px solid ${selectedAgents.includes(agent.id) ? '#7F77DD' : 'rgba(255,255,255,0.1)'}`, background: selectedAgents.includes(agent.id) ? '#EEEDFE' : '#0d1c2d', cursor: 'pointer' }}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: selectedAgents.includes(agent.id) ? '#534AB7' : '#d4e4fa' }}>
                   {agent.icon || '🤖'} {agent.name}
                 </div>
-                <div style={{ fontSize: 11, color: '#958ea0', marginTop: 2 }}>
-                  {agent.description}
-                </div>
-                {agent.installed && (
-                  <span style={{ fontSize: 10, color: '#0F6E56', marginTop: 4, display: 'block' }}>✓ 已安裝</span>
-                )}
+                <div style={{ fontSize: 11, color: '#958ea0', marginTop: 2 }}>{agent.description}</div>
+                {agent.installed && <span style={{ fontSize: 10, color: '#0F6E56', marginTop: 4, display: 'block' }}>✓ 已安裝</span>}
               </div>
             ))}
           </div>
         </div>
 
-        {/* 運行模式 */}
         <div className="card">
           <h2 className="text-sm font-semibold mb-3" style={{ color: '#d4e4fa' }}>⚙️ AI 模型運行方式</h2>
           <div className="space-y-2">
-            {[
-              { value: 'local', label: '完全本地', desc: '使用 Ollama + 本地模型，資料不離開電腦' },
+            {[{ value: 'local', label: '完全本地', desc: '使用 Ollama + 本地模型，資料不離開電腦' },
               { value: 'api', label: '使用 API', desc: '透過 API 使用雲端模型（OpenRouter、Claude、GPT 等）' },
-              { value: 'both', label: '兩者都要', desc: '預設本地模型，API 作為備用' },
-            ].map(m => (
+              { value: 'both', label: '兩者都要', desc: '預設本地模型，API 作為備用' }].map(m => (
               <label key={m.value} className="flex items-start gap-3 p-3 rounded cursor-pointer transition"
                 style={{ background: '#0d1c2d', border: '1px solid rgba(255,255,255,0.1)' }}>
                 <input type="radio" name="runMode" value={m.value} checked={options.runMode === m.value}
@@ -352,19 +444,13 @@ function InstallPage({ onComplete, onClose }: { onComplete: () => void; onClose:
           </div>
         </div>
 
-        {/* 模型提供者 — API / Both 模式 */}
         {(options.runMode === 'api' || options.runMode === 'both') && (
           <div className="card">
             <h2 className="text-sm font-semibold mb-3" style={{ color: '#d4e4fa' }}>🌐 選擇 AI 提供者</h2>
             <div className="grid grid-cols-2 gap-3">
               {providers.filter(p => !p.requiresLocal).map(p => (
-                <button key={p.id} onClick={() => handleProviderChange(p.id)}
-                  className="text-left p-4 rounded transition"
-                  style={{
-                    background: options.providerId === p.id ? 'rgba(208,188,255,0.12)' : '#0d1c2d',
-                    border: `1px solid ${options.providerId === p.id ? '#d0bcff' : 'rgba(255,255,255,0.1)'}`,
-                  }}
-                >
+                <button key={p.id} onClick={() => handleProviderChange(p.id)} className="text-left p-4 rounded transition"
+                  style={{ background: options.providerId === p.id ? 'rgba(208,188,255,0.12)' : '#0d1c2d', border: `1px solid ${options.providerId === p.id ? '#d0bcff' : 'rgba(255,255,255,0.1)'}` }}>
                   <div style={{ color: '#d4e4fa' }} className="font-medium">{p.name}</div>
                   <div className="text-xs mt-1" style={{ color: '#958ea0' }}>{p.description}</div>
                   <div className="text-xs mt-2" style={{ color: '#494454' }}>{p.models.length} 個可用模型</div>
@@ -389,13 +475,11 @@ function InstallPage({ onComplete, onClose }: { onComplete: () => void; onClose:
             <div className="mt-4">
               <h3 className="text-sm font-semibold mb-2" style={{ color: '#d4e4fa' }}>🔑 API Key</h3>
               <input type="password" value={options.apiKey} onChange={(e) => setOptions(o => ({ ...o, apiKey: e.target.value }))}
-                className="w-full"
-                placeholder={providers.find(p => p.id === options.providerId)?.requiresKey ? '請輸入 API Key' : 'Ollama 不需要 API Key'} />
+                className="w-full" placeholder={providers.find(p => p.id === options.providerId)?.requiresKey ? '請輸入 API Key' : 'Ollama 不需要 API Key'} />
             </div>
           </div>
         )}
 
-        {/* 本地模型偏好 */}
         {(options.runMode === 'local' || options.runMode === 'both') && (
           <div className="card">
             <h2 className="text-sm font-semibold mb-3" style={{ color: '#d4e4fa' }}>🧠 本地模型偏好</h2>
@@ -418,7 +502,6 @@ function InstallPage({ onComplete, onClose }: { onComplete: () => void; onClose:
           </div>
         )}
 
-        {/* 開機自動啟動 */}
         <div className="card">
           <label className="flex items-center gap-3 cursor-pointer">
             <input type="checkbox" checked={options.autoStart} onChange={(e) => setOptions(o => ({ ...o, autoStart: e.target.checked }))} className="w-4 h-4" />
@@ -426,7 +509,6 @@ function InstallPage({ onComplete, onClose }: { onComplete: () => void; onClose:
           </label>
         </div>
 
-        {/* 錯誤 */}
         {error && (
           <div className="p-4 rounded" style={{ background: 'rgba(196,58,58,0.15)', border: '1px solid rgba(196,58,58,0.3)' }}>
             <div className="font-semibold mb-1" style={{ color: '#c43a3a' }}>❌ 安裝失敗</div>
@@ -435,7 +517,6 @@ function InstallPage({ onComplete, onClose }: { onComplete: () => void; onClose:
         )}
       </div>
 
-      {/* 底部按鈕 */}
       <div className="p-5 shrink-0" style={{ background: '#051424', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
         {installing ? (
           <div>
