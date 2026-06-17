@@ -1,177 +1,146 @@
 # AgentOS
 
-**Windows 上的 AI Agent 生命週期管理器**
+> 本地優先的 AI Agent 編排平台 — 在 Windows 上安裝、管理、串接多個 AI Agent，免寫程式碼。
 
-安裝、執行、協調你的 AI agents — 無需技術背景。
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows-0078D6.svg)](https://github.com/zorrokurro/agent-os/releases)
+[![Electron](https://img.shields.io/badge/Electron-React%2BTypeScript-47848F.svg)](#技術棧)
 
----
-
-## 截圖
-
-### GitHub 安裝器 — 貼上任何 GitHub 網址，一鍵安裝
-![GitHub 安裝器](docs/screenshot-github-installer.png)
-
-### Notebook — AI 筆記本，支援來源匯入與大綱生成
-![Notebook](docs/screenshot-notebook.png)
-
-### LLM Council — 多 Agent 議事，五個角色辯論，主席綜合結論
-![LLM Council](docs/screenshot-llm-council.png)
-
-### Agent Orchestrator — 輸入任務，自動分配給最適合的 Agent
-![Orchestrator](docs/screenshot-orchestrator.png)
+AgentOS 讓你像裝軟體一樣安裝 AI Agent：貼一個 GitHub 連結，剩下的交給 AgentOS。內建 Fusion-Loop 大腦（多模型合成推理）、UMP Hub（跨 Agent 共享記憶）、可同時切換本地模型與雲端 API，全部跑在你自己的電腦上。
 
 ---
 
-## 功能
+## 為什麼選 AgentOS
 
-### 🔧 GitHub 安裝器
-貼上任何 GitHub 專案網址，自動分析技術棧（Node.js / Python），執行 git clone + 依賴安裝，一鍵完成。
+| | AgentOS | LangChain / LangGraph | AutoGPT 系列 | Ollama 單獨使用 |
+|---|---|---|---|---|
+| 安裝方式 | 點兩下安裝、GitHub 連結匯入 | 寫 Python 程式 | clone + 設定 .env | 命令列 |
+| 多 Agent 協作 | ✅ 內建 Orchestrator + UMP Hub | 需自行架設 | 部分支援 | ❌ |
+| 本地 + 雲端混用 | ✅ 同一介面切換 | 需自行寫切換邏輯 | 通常二選一 | 僅本地 |
+| 多模型合成推理 | ✅ Fusion-Loop 大腦 | 需自行實作 | ❌ | ❌ |
+| 圖形介面 | ✅ 完整 GUI | ❌ 純程式 | 部分有網頁介面 | ❌ |
+| 跨 Agent 記憶共享 | ✅ UMP Hub (SQLite) | 需自行架設向量資料庫 | ❌ | ❌ |
+| 目標用戶 | 非工程師也能用 | 開發者 | 開發者 | 開發者 |
 
-### 🗂️ Notebook
-多筆記本管理，Markdown 即時預覽。支援 PDF、網址、文字來源匯入。內建 AI 功能：
-- **筆記對話** — 針對筆記內容提問
-- **摘要生成** — 一鍵生成重點摘要
-- **大綱生成** — 整合所有筆記與來源，生成階層式大綱
-- **標籤提取** — AI 自動分析關鍵字並加入標籤
-- **Obsidian 同步** — 雙向自動同步到 Obsidian Vault
+AgentOS 的定位不是取代 LangChain 這類開發框架，而是**給不想寫程式碼的人一個能跑多 Agent 系統的桌面應用**。如果你已經會寫 Python 串 Agent，可能不需要 AgentOS；如果你想要「裝一個東西就能用」，這是為你做的。
 
-### 🏛️ LLM Council
-多 Agent 議事系統。五個角色（Builder、Optimizer、Curator、News、Supervisor）從不同角度分析問題，Chairman 綜合輸出最終建議。
+---
 
-### 🎯 Agent Orchestrator
-輸入任務，系統自動分析並分配給最適合的 Agent 執行。透過 UMP Hub 橋接 Hermes、OpenCode 等 Agent 協作。
-
-### 🧠 UMP 統一記憶協議
-SQLite 共享記憶層，讓所有 Agent 共用同一份記憶資料庫。支援跨 Agent 任務橋接與即時任務佇列。
-
-### 🤖 Discord 整合
-透過 Discord Bot 遠端控制 AgentOS：
-- `!task 任務內容` — 建立任務給 Hermes
-- `!research 查詢內容` — 建立研究任務
-- `!status` — 查詢目前任務狀態
-- 任務完成後自動推送通知到頻道
-
-### 📚 Agent 收藏庫
-管理本機安裝的 AI Agent，支援從 GitHub 匯入、啟動、停止、查看日誌。
-
-### 🔬 研究模式
-從新聞、學術論文、YouTube、GitHub 等多個來源同步搜尋，自動生成結構化報告。
+## 核心功能
 
 ### 🧠 Fusion-Loop 大腦
-
 ![Fusion-Loop 大腦](docs/screenshots/fusion-loop-brain.webp)
 
 AgentOS 內建多模型合成推理系統，作為所有任務的統一入口。
 
-#### Fusion（橫向展開）
-同一個任務同時交給多個本地模型（qwen3:8b + gemma3:9b），由 Judge 模型分析共識、矛盾與盲點後合成最終答案，突破單一模型的視角限制。
+- **Fusion（橫向展開）**：同一個任務同時交給多個模型（本地或雲端皆可），由 Judge 模型分析共識、矛盾與盲點後合成最終答案
+- **Self-Refinement Loop（縱向收斂）**：合成草稿完成後，Critic 模型評估準確性、完整性、清晰度、可行性，不達標則交給 Refiner 修改，最多迭代 3 輪
+- **雙 Provider 架構**：本地模型（Ollama）與雲端 API（OpenRouter / Anthropic / OpenAI）可同時設定，每個角色（Panel A/B、Judge、Critic、Refiner）獨立選擇要用哪個
 
-#### Self-Refinement Loop（縱向收斂）
-合成草稿完成後，由 Critic 模型評估準確性、完整性、清晰度、可行性，不達標則交給 Refiner 修改，最多迭代 3 輪直到收斂。
+### 📦 一鍵 Agent 安裝
+![GitHub 安裝器](docs/screenshot-github-installer.png)
 
-#### Orchestrator（工具調度）
-Fusion-Loop 大腦分析任務複雜度，決定是否啟用 Fusion 或 Loop，自己只負責決策，不執行。
+貼上 GitHub 連結，AgentOS 自動分析 repo 結構、偵測技術棧（Node / Python）、安裝依賴。也支援掃描本機已安裝的 Agent（pip / npm / docker / 自訂目錄）一鍵納入管理。
 
-#### 技術細節
-- 本地推理：Ollama（可設定，預設 `localhost:11434`）
-- 記憶寫入：UMP Hub SQLite（IPC `ump-add-memory`）
-- 前端入口：`BrainChat` → `BrainService` → `FusionLoopOrchestrator`
+### 📓 Notebook
+![Notebook](docs/screenshot-notebook.png)
+
+類似 NotebookLM 的筆記與資料來源整合介面。匯入 PDF / 網址 / 文字，AI 生成的摘要、大綱、標籤直接內嵌在對話串裡，不用切換分頁尋找結果。
+
+### 👥 LLM Council
+![LLM Council](docs/screenshot-llm-council.png)
+
+多個模型同時針對一個問題投票、辯論，取得比單一模型更穩健的結論。
+
+### 🔀 Orchestrator
+![Orchestrator](docs/screenshot-orchestrator.png)
+
+任務調度層，將工作分配給對應的 Agent 或工具執行，而非讓單一模型獨自完成所有事情。
+
+### 🗄️ UMP Hub（記憶協議）
+跨 Agent 共享的本地 SQLite 記憶層，所有 Agent 的對話、任務、推理過程都能互相讀取，不是各自孤立的黑盒子。
+
+### 其他
+- **Discord 整合**：透過 Discord bot 遠端下任務、收通知
+- **收藏庫**：管理已安裝 Agent 的啟動/停止/日誌/設定
+- **研究模式**：深度資料蒐集與分析任務
+
+---
+
+## 生態系
+
+| 專案 | 說明 |
+|---|---|
+| [Ollama](https://ollama.com) | AgentOS 的本地推理引擎，需自行安裝 |
+| [OpenRouter](https://openrouter.ai) | 雲端 API 路由，支援數百種模型 |
+| 你的 Agent | 任何符合 `manifest.json` 規範（見 [docs/agent-manifest-schema.json](docs/agent-manifest-schema.json)）的專案都能被 AgentOS 匯入管理 |
+
+想把你的 Agent 專案做成可被 AgentOS 一鍵安裝？參考 [manifest schema](docs/agent-manifest-schema.json)，加上 `manifest.json` 即可被自動偵測。
 
 ---
 
 ## 安裝
 
-### 前置需求
+### 下載
 
-| 軟體 | 版本 | 用途 |
-|------|------|------|
-| Node.js | 18+（推薦 20） | 核心執行環境 |
-| npm | 9+ | 套件管理 |
-| Ollama | 最新版 | 本地 AI 模型（可選） |
-| Python | 3.8+ | Hermes 任務監聽器（可選） |
-| Git | 最新版 | GitHub 安裝器必要 |
+前往 [Releases](https://github.com/zorrokurro/agent-os/releases) 下載最新版 `AgentOS-Setup.exe`，雙擊安裝。
 
-### 快速開始
+### 需求
+
+- Windows 10 / 11
+- [Ollama](https://ollama.com) 運行中（本地模型用，可選 — 純雲端 API 模式不需要）
+- 若使用雲端 API：OpenRouter / Anthropic / OpenAI 的 API Key
+
+### 從原始碼建置
 
 ```bash
 git clone https://github.com/zorrokurro/agent-os.git
 cd agent-os
 npm install
-npm run dev
+npm run build
 ```
 
-### 設定 OpenRouter（AI 功能必要）
+需求：Node.js 18+、npm 9+、Python（部分 Agent 依賴）、Git
 
-1. 前往 [openrouter.ai](https://openrouter.ai) 申請 API Key
-2. 開啟 AgentOS → 設定 → AI 提供者設定
-3. 填入 API Key 和模型 ID（例如：`openai/gpt-4o-mini`）
+---
 
-### 設定 Discord Bot（可選）
+## 技術棧
 
-1. 前往 [Discord Developer Portal](https://discord.com/developers/applications) 建立 Bot
-2. 開啟 Message Content Intent
-3. 開啟 AgentOS → 設定 → Discord 區塊填入 Token 和頻道 ID
-
-### 啟動 Hermes 任務監聽器（可選）
-
-如果你有安裝 Hermes，啟動橋接服務：
-
-```bash
-python task_listener.py
-```
+- **前端**：React 18 + TypeScript + Vite + Tailwind
+- **桌面框架**：Electron
+- **記憶層**：SQLite（sql.js，in-process，無需外部資料庫）
+- **本地推理**：Ollama
+- **雲端 API**：OpenRouter / Anthropic / OpenAI
+- **打包**：electron-builder（NSIS installer）
 
 ---
 
 ## 架構
 
 ```
-AgentOS (Electron)
-├── Frontend (React + TypeScript + Tailwind)
-├── Backend (Electron Main Process)
-│   ├── Agent Manager — Agent 生命週期管理
-│   ├── Orchestrator — 任務分析與分配
-│   ├── UMP Hub — SQLite 共享記憶層
-│   ├── Research Engine — 多來源搜尋
-│   ├── Council Service — 多模型議事
-│   ├── Discord Service — Bot 整合
-│   ├── Obsidian Service — Vault 雙向同步
-│   └── GitHub Installer — 一鍵安裝任何 GitHub 專案
-└── task_listener.py — Hermes 橋接服務
+┌─────────────────────────────────────────┐
+│  Renderer（React）                       │
+│  Fusion-Loop 大腦 / Notebook / Library   │
+└───────────────┬───────────────────────────┘
+                 │ IPC
+┌───────────────┴───────────────────────────┐
+│  Electron Main Process                    │
+│  AIRouter（Ollama ↔ 雲端 API 統一路由）   │
+│  UMP Hub（SQLite 共享記憶）               │
+│  Installer（GitHub clone / 系統掃描）     │
+└───────────────┬───────────────────────────┘
+                 │
+        ┌────────┼────────┐
+        ▼        ▼        ▼
+     Ollama   OpenRouter  已安裝 Agents
 ```
 
 ---
 
-## 技術棧
+## 貢獻
 
-- **Frontend**: React 18, TypeScript, Tailwind CSS, Vite
-- **Backend**: Electron, Node.js
-- **資料庫**: SQLite (UMP Hub)
-- **AI**: OpenRouter API, Ollama
-- **打包**: electron-builder
+歡迎 PR 和 Issue。詳見 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
----
+## License
 
-## 開發
-
-```bash
-# 開發模式
-npm run dev
-
-# 型別檢查
-npm run typecheck
-
-# 打包
-npm run build
-```
-
----
-
-## 相關專案
-
-- [Hermes](https://github.com/zorrokurro/hermes) — 多 Agent 協作系統，可與 AgentOS 橋接
-
----
-
-## 授權
-
-MIT License
+MIT
