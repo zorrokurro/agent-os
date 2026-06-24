@@ -90,7 +90,7 @@ AgentOS acts as an **MCP Client**, connecting to any external MCP Server to give
 | 6 | Disconnect detection (server killed) | Pass | <20ms |
 | 7 | Subprocess cleanup on app quit | Pass | — |
 
-Full test report: [demo/MCP測試紀錄.md](demo/MCP%E6%B8%AC%E8%A9%95%E7%B4%80%E9%8C%84.md)
+Full integration test results are summarized in the table above. Detailed logs are kept locally and not included in this public repo.
 
 ### Other Features
 - **Discord integration**: Remote task dispatch and notifications via Discord bot
