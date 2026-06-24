@@ -1,97 +1,130 @@
 # AgentOS
 
-> 本地優先的 AI Agent 編排平台 — 在 Windows 上安裝、管理、串接多個 AI Agent，免寫程式碼。
+> Local-first AI Agent orchestration platform — install, manage, and connect multiple AI Agents on Windows, no code required.
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows-0078D6.svg)](https://github.com/zorrokurro/agent-os/releases)
-[![Electron](https://img.shields.io/badge/Electron-React%2BTypeScript-47848F.svg)](#技術棧)
+[![Electron](https://img.shields.io/badge/Electron-React%2BTypeScript-47848F.svg)](#tech-stack)
+[![MCP](https://img.shields.io/badge/MCP-Client%20Supported-8B5CF6.svg)](#mcp-model-context-protocol-integration)
+[![MCP SDK](https://img.shields.io/badge/MCP%20SDK-1.29.0-8B5CF6.svg)](https://www.npmjs.com/package/@modelcontextprotocol/sdk)
 
-AgentOS 讓你像裝軟體一樣安裝 AI Agent：貼一個 GitHub 連結，剩下的交給 AgentOS。內建 Fusion-Loop 大腦（多模型合成推理）、UMP Hub（跨 Agent 共享記憶）、可同時切換本地模型與雲端 API，全部跑在你自己的電腦上。
+AgentOS lets you install AI Agents like desktop apps — paste a GitHub link, and AgentOS handles the rest. Built-in Fusion-Loop brain (multi-model synthesis), UMP Hub (cross-agent shared memory), and seamless switching between local models and cloud APIs, all running on your own machine.
 
 ---
 
-## 為什麼選 AgentOS
+## Why AgentOS
 
-| | AgentOS | LangChain / LangGraph | AutoGPT 系列 | Ollama 單獨使用 |
+| | AgentOS | LangChain / LangGraph | AutoGPT family | Ollama standalone |
 |---|---|---|---|---|
-| 安裝方式 | 點兩下安裝、GitHub 連結匯入 | 寫 Python 程式 | clone + 設定 .env | 命令列 |
-| 多 Agent 協作 | ✅ 內建 Orchestrator + UMP Hub | 需自行架設 | 部分支援 | ❌ |
-| 本地 + 雲端混用 | ✅ 同一介面切換 | 需自行寫切換邏輯 | 通常二選一 | 僅本地 |
-| 多模型合成推理 | ✅ Fusion-Loop 大腦 | 需自行實作 | ❌ | ❌ |
-| 圖形介面 | ✅ 完整 GUI | ❌ 純程式 | 部分有網頁介面 | ❌ |
-| 跨 Agent 記憶共享 | ✅ UMP Hub (SQLite) | 需自行架設向量資料庫 | ❌ | ❌ |
-| 目標用戶 | 非工程師也能用 | 開發者 | 開發者 | 開發者 |
+| Setup | Double-click installer, GitHub link import | Write Python code | Clone + configure .env | CLI only |
+| Multi-Agent collaboration | Built-in Orchestrator + UMP Hub | Requires custom setup | Partial support | No |
+| Local + cloud hybrid | Same UI for switching | Requires custom logic | Usually one or the other | Local only |
+| Multi-model synthesis | Fusion-Loop brain | Requires custom implementation | No | No |
+| GUI | Full GUI | No (code only) | Some have web UI | No |
+| Cross-agent memory | UMP Hub (SQLite) | Requires vector DB setup | No | No |
+| MCP integration | Built-in client + tested | No | No | No |
+| Target users | Non-engineers | Developers | Developers | Developers |
 
-AgentOS 的定位不是取代 LangChain 這類開發框架，而是**給不想寫程式碼的人一個能跑多 Agent 系統的桌面應用**。如果你已經會寫 Python 串 Agent，可能不需要 AgentOS；如果你想要「裝一個東西就能用」，這是為你做的。
+AgentOS is not a replacement for frameworks like LangChain — it's a desktop application that lets non-developers run multi-agent systems. If you already write Python to wire up agents, you may not need AgentOS. If you want "install and go," this is for you.
 
 ---
 
-## 核心功能
+## Core Features
 
-### 🧠 Fusion-Loop 大腦
-![Fusion-Loop 大腦](docs/screenshots/fusion-loop-brain.webp)
+### Fusion-Loop Brain
+![Fusion-Loop Brain](docs/screenshots/fusion-loop-brain.webp)
 
-AgentOS 內建多模型合成推理系統，作為所有任務的統一入口。
+AgentOS includes a multi-model synthesis engine as the unified entry point for all tasks.
 
-- **Fusion（橫向展開）**：同一個任務同時交給多個模型（本地或雲端皆可），由 Judge 模型分析共識、矛盾與盲點後合成最終答案
-- **Self-Refinement Loop（縱向收斂）**：合成草稿完成後，Critic 模型評估準確性、完整性、清晰度、可行性，不達標則交給 Refiner 修改，最多迭代 3 輪
-- **雙 Provider 架構**：本地模型（Ollama）與雲端 API（OpenRouter / Anthropic / OpenAI）可同時設定，每個角色（Panel A/B、Judge、Critic、Refiner）獨立選擇要用哪個
+- **Fusion (horizontal expansion)**: The same task is sent to multiple models (local or cloud) simultaneously. A Judge model analyzes consensus, contradictions, and blind spots, then synthesizes a final answer.
+- **Self-Refinement Loop (vertical convergence)**: After synthesis, a Critic model evaluates accuracy, completeness, clarity, and feasibility. If below threshold, a Refiner rewrites — up to 3 iterations.
+- **Dual-provider architecture**: Local models (Ollama) and cloud APIs (OpenRouter / Anthropic / OpenAI) can be configured simultaneously. Each role (Panel A/B, Judge, Critic, Refiner) independently selects which provider to use.
 
-### 📦 一鍵 Agent 安裝
-![GitHub 安裝器](docs/screenshot-github-installer.png)
+### One-Click Agent Install
+![GitHub Installer](docs/screenshot-github-installer.png)
 
-貼上 GitHub 連結，AgentOS 自動分析 repo 結構、偵測技術棧（Node / Python）、安裝依賴。也支援掃描本機已安裝的 Agent（pip / npm / docker / 自訂目錄）一鍵納入管理。
+Paste a GitHub link. AgentOS automatically analyzes the repo structure, detects the tech stack (Node / Python), and installs dependencies. Also supports scanning locally installed agents (pip / npm / docker / custom directories) for one-click onboarding.
 
-### 📓 Notebook
+### Notebook
 ![Notebook](docs/screenshot-notebook.png)
 
-類似 NotebookLM 的筆記與資料來源整合介面。匯入 PDF / 網址 / 文字，AI 生成的摘要、大綱、標籤直接內嵌在對話串裡，不用切換分頁尋找結果。
+A NotebookLM-style interface for notes and source integration. Import PDFs / URLs / text, and AI-generated summaries, outlines, and tags are embedded directly in the conversation thread — no tab switching required.
 
-### 👥 LLM Council
+### LLM Council
 ![LLM Council](docs/screenshot-llm-council.png)
 
-多個模型同時針對一個問題投票、辯論，取得比單一模型更穩健的結論。
+Multiple models simultaneously debate and vote on a single question, producing more robust conclusions than any single model.
 
-### 🔀 Orchestrator
+### Orchestrator
 ![Orchestrator](docs/screenshot-orchestrator.png)
 
-任務調度層，將工作分配給對應的 Agent 或工具執行，而非讓單一模型獨自完成所有事情。
+A task scheduling layer that delegates work to the appropriate agent or tool, rather than relying on a single model to do everything.
 
-### 🗄️ UMP Hub（記憶協議）
-跨 Agent 共享的本地 SQLite 記憶層，所有 Agent 的對話、任務、推理過程都能互相讀取，不是各自孤立的黑盒子。
+### UMP Hub (Universal Memory Protocol)
 
-### 其他
-- **Discord 整合**：透過 Discord bot 遠端下任務、收通知
-- **收藏庫**：管理已安裝 Agent 的啟動/停止/日誌/設定
-- **研究模式**：深度資料蒐集與分析任務
+A cross-agent shared SQLite memory layer. All agents' conversations, tasks, and reasoning processes are mutually accessible — not isolated silos.
 
----
+### MCP (Model Context Protocol) Integration
 
-## 生態系
+AgentOS acts as an **MCP Client**, connecting to any external MCP Server to give built-in agents access to external tools (filesystem, GitHub, Slack, databases, etc.) without writing integration code.
 
-| 專案 | 說明 |
+**What works today:**
+
+| Capability | Status |
 |---|---|
-| [Ollama](https://ollama.com) | AgentOS 的本地推理引擎，需自行安裝 |
-| [OpenRouter](https://openrouter.ai) | 雲端 API 路由，支援數百種模型 |
-| 你的 Agent | 任何符合 `manifest.json` 規範（見 [docs/agent-manifest-schema.json](docs/agent-manifest-schema.json)）的專案都能被 AgentOS 匯入管理 |
+| Connection handshake (stdio transport) | Verified |
+| Tool discovery (list remote tools) | Verified |
+| Tool invocation (read / write / list) | Verified |
+| Disconnect detection | Verified |
+| Subprocess lifecycle management | Verified |
 
-想把你的 Agent 專案做成可被 AgentOS 一鍵安裝？參考 [manifest schema](docs/agent-manifest-schema.json)，加上 `manifest.json` 即可被自動偵測。
+**Integration test results** (tested against `@modelcontextprotocol/server-filesystem`):
+
+| # | Test | Result | Latency |
+|---|------|--------|---------|
+| 1 | MCP connection | Pass | ~800ms |
+| 2 | Tool discovery (14 tools) | Pass | ~100ms |
+| 3 | `write_file` + disk verification | Pass | ~25ms |
+| 4 | `read_file` content match | Pass | ~10ms |
+| 5 | `list_directory` | Pass | ~8ms |
+| 6 | Disconnect detection (server killed) | Pass | <20ms |
+| 7 | Subprocess cleanup on app quit | Pass | — |
+
+Full test report: [demo/MCP測試紀錄.md](demo/MCP%E6%B8%AC%E8%A9%95%E7%B4%80%E9%8C%84.md)
+
+### Other Features
+- **Discord integration**: Remote task dispatch and notifications via Discord bot
+- **Library**: Manage installed agents — start / stop / logs / settings
+- **Research mode**: Deep data collection and analysis tasks
 
 ---
 
-## 安裝
+## Ecosystem
 
-### 下載
+| Project | Description |
+|---|---|
+| [Ollama](https://ollama.com) | AgentOS's local inference engine (install separately) |
+| [OpenRouter](https://openrouter.ai) | Cloud API gateway, supports hundreds of models |
+| [MCP Servers](https://modelcontextprotocol.io) | External tool providers — any MCP-compatible server works |
+| Your Agent | Any project with a `manifest.json` (see [docs/agent-manifest-schema.json](docs/agent-manifest-schema.json)) can be imported |
 
-前往 [Releases](https://github.com/zorrokurro/agent-os/releases) 下載最新版 `AgentOS-Setup.exe`，雙擊安裝。
+To make your agent project installable by AgentOS, add a `manifest.json` following the [manifest schema](docs/agent-manifest-schema.json).
 
-### 需求
+---
+
+## Installation
+
+### Download
+
+Go to [Releases](https://github.com/zorrokurro/agent-os/releases) and download `AgentOS-Setup.exe`. Double-click to install.
+
+### Requirements
 
 - Windows 10 / 11
-- [Ollama](https://ollama.com) 運行中（本地模型用，可選 — 純雲端 API 模式不需要）
-- 若使用雲端 API：OpenRouter / Anthropic / OpenAI 的 API Key
+- [Ollama](https://ollama.com) running (for local models, optional — not needed for cloud-only mode)
+- For cloud APIs: OpenRouter / Anthropic / OpenAI API key
 
-### 從原始碼建置
+### Build from source
 
 ```bash
 git clone https://github.com/zorrokurro/agent-os.git
@@ -100,50 +133,78 @@ npm install
 npm run build
 ```
 
-需求：Node.js 18+、npm 9+、Python（部分 Agent 依賴）、Git
+Requires: Node.js 18+, npm 9+, Python (some agents depend on it), Git
 
 ---
 
-## 技術棧
+## Tech Stack
 
-- **前端**：React 18 + TypeScript + Vite + Tailwind
-- **桌面框架**：Electron
-- **記憶層**：SQLite（sql.js，in-process，無需外部資料庫）
-- **本地推理**：Ollama
-- **雲端 API**：OpenRouter / Anthropic / OpenAI
-- **打包**：electron-builder（NSIS installer）
+- **Frontend**: React 18 + TypeScript + Vite + Tailwind
+- **Desktop**: Electron
+- **Memory**: SQLite (sql.js, in-process, no external DB)
+- **Local inference**: Ollama
+- **Cloud APIs**: OpenRouter / Anthropic / OpenAI
+- **MCP SDK**: @modelcontextprotocol/sdk 1.29.0
+- **Packaging**: electron-builder (NSIS installer)
 
 ---
 
-## 架構
+## Architecture
 
 ```
-┌─────────────────────────────────────────┐
-│  Renderer（React）                       │
-│  Fusion-Loop 大腦 / Notebook / Library   │
-└───────────────┬───────────────────────────┘
-                 │ IPC
-┌───────────────┴───────────────────────────┐
-│  Electron Main Process                    │
-│  AIRouter（Ollama ↔ 雲端 API 統一路由）   │
-│  UMP Hub（SQLite 共享記憶）               │
-│  Installer（GitHub clone / 系統掃描）     │
-└───────────────┬───────────────────────────┘
-                 │
-        ┌────────┼────────┐
-        ▼        ▼        ▼
-     Ollama   OpenRouter  已安裝 Agents
+┌──────────────────────────────────────────────────────────┐
+│  Renderer (React)                                        │
+│  Fusion-Loop Brain / Notebook / Library / MCP Manager   │
+└────────────────────────┬─────────────────────────────────┘
+                         │ IPC
+┌────────────────────────┴─────────────────────────────────┐
+│  Electron Main Process                                   │
+│                                                          │
+│  ┌─────────────┐  ┌──────────┐  ┌─────────────────────┐│
+│  │ AIRouter     │  │ UMP Hub  │  │ McpClientManager    ││
+│  │ Ollama ↔     │  │ SQLite   │  │ connect / tools /   ││
+│  │ Cloud APIs   │  │ memory   │  │ call / disconnect   ││
+│  └─────────────┘  └──────────┘  └──────────┬──────────┘│
+│                                             │           │
+│  ┌──────────────────────────────────────────┴─────────┐ │
+│  │  Orchestrator                                      │ │
+│  │  ├─ OpenCodeController (code tasks)                │ │
+│  │  ├─ HermesController (research)                    │ │
+│  │  ├─ FilesystemController (file ops)                │ │
+│  │  └─ McpController → external MCP Servers           │ │
+│  └────────────────────────────────────────────────────┘ │
+└────────────────────────┬─────────────────────────────────┘
+                         │ stdio / JSON-RPC
+          ┌──────────────┼──────────────┐
+          ▼              ▼              ▼
+       Ollama    External MCP Servers    Cloud APIs
+                 (filesystem, GitHub,
+                  databases, etc.)
+```
+
+### MCP Data Flow
+
+```
+User prompt
+  → Orchestrator.analyze(prompt)        # keyword routing
+  → Task.assignedAgent = 'mcp'
+  → McpController.execute(task)
+    → McpClientManager.callTool(serverId, toolName, args)
+      → StdioClientTransport            # JSON-RPC over stdio
+      → External MCP Server process
+      → Tool result returned
+  → Result propagated back to user
 ```
 
 ---
 
 ## Roadmap
 
-開發方向與規劃，見 [ROADMAP.md](ROADMAP.md)。
+See [ROADMAP.md](ROADMAP.md) for development direction and plans.
 
-## 貢獻
+## Contributing
 
-歡迎 PR 和 Issue。詳見 [CONTRIBUTING.md](CONTRIBUTING.md)。
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

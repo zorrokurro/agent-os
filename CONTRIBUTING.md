@@ -1,12 +1,12 @@
-# 貢獻指南
+# Contributing Guide
 
-感謝你對 AgentOS 有興趣。這份文件說明怎麼參與這個專案。
+Thanks for your interest in AgentOS. This document explains how to participate in the project.
 
-## 開始之前
+## Before You Start
 
-AgentOS 是一個還在快速迭代的個人專案，架構可能會有較大調整。建議在開始大改動前先開一個 Issue 討論方向，避免做完之後方向不合而浪費時間。
+AgentOS is a rapidly evolving personal project. Architecture may change significantly. Consider opening an Issue to discuss direction before large changes, to avoid wasted effort.
 
-## 開發環境設置
+## Development Setup
 
 ```bash
 git clone https://github.com/zorrokurro/agent-os.git
@@ -15,55 +15,103 @@ npm install
 npm run dev
 ```
 
-需要先安裝並啟動 [Ollama](https://ollama.com)，AgentOS 的本地推理功能依賴它。
+Requires [Ollama](https://ollama.com) installed and running for local inference features.
 
-## 專案結構
+## Project Structure
 
 ```
 electron/           Electron main process
-├── main.ts          所有 IPC handler
-├── preload.ts        renderer 對外的安全橋接
-└── services/         核心服務（ollama, aiRouter, ump/, installer-github 等）
+├── main.ts          All IPC handlers
+├── preload.ts       Secure bridge for renderer
+└── services/        Core services (ollama, aiRouter, ump/, mcp/, etc.)
+
+shared/
+└── types.ts         Canonical type definitions (shared by frontend + backend)
 
 src/
-├── components/       各頁面元件（LibraryPage, NotebookPage, InstallPage 等）
-├── components/brain/ Fusion-Loop 大腦 UI
-├── agents/fusion/     Fusion + Self-Refinement Loop 核心邏輯
-├── hooks/             共用 hook（useModelConfig 等）
-└── core/              BrainService 等前端服務層
+├── components/      Page components (LibraryPage, NotebookPage, InstallPage, etc.)
+├── components/brain/ Fusion-Loop brain UI
+├── pages/           Page components (McpPage, OrchestratorPage)
+├── agents/fusion/   Fusion + Self-Refinement Loop core logic
+├── hooks/           Shared hooks (useModelConfig, etc.)
+└── core/            BrainService and other frontend services
 ```
 
-## 提交 PR 前
+## MCP Setup (Model Context Protocol)
+
+AgentOS includes a built-in MCP Client. Here's how to connect an external MCP Server.
+
+### Via the GUI
+
+1. Open AgentOS → click **MCP** in the sidebar
+2. Click **+ Add Server**
+3. Fill in:
+   - **Name**: a display name (e.g. "Filesystem Server")
+   - **Command**: the executable (e.g. `npx`)
+   - **Arguments**: space-separated args (e.g. `-y @modelcontextprotocol/server-filesystem /path/to/allowed/dir`)
+4. Click **Connect** — the server should show as connected with a tool count
+
+### Via config (manual)
+
+Add to AgentOS settings store (`settings.json`):
+
+```json
+{
+  "mcpServers": [
+    {
+      "id": "mcp-filesystem",
+      "name": "Filesystem Server",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "C:\\Users\\you\\Documents"],
+      "enabled": true
+    }
+  ]
+}
+```
+
+### Verified MCP Servers
+
+| Server | Package | Status |
+|--------|---------|--------|
+| Filesystem | `@modelcontextprotocol/server-filesystem` | Tested — all tools working |
+
+Other MCP-compatible servers should work via stdio transport. If you test additional servers, please report results in an Issue.
+
+### Testing MCP Integration
+
+The MCP integration is tested via `electron/services/mcp/client.ts` using `@modelcontextprotocol/sdk`. To verify MCP functionality, start AgentOS (`npm run dev`), navigate to the MCP page, connect a test server (e.g. filesystem), and verify tool discovery and invocation work correctly.
+
+## Before Submitting a PR
 
 ```bash
-npx tsc --noEmit          # 確認 type-check 通過
-npx knip                  # 確認沒有新增 dead code
-npm run build              # 確認能正常打包
+npx tsc --noEmit          # Verify type-check passes
+npm run build             # Verify build succeeds
 ```
 
-## 程式碼風格
+## Code Style
 
-- TypeScript strict mode，避免使用 `any`
-- 新的 IPC channel 要同時更新三個地方：`electron/main.ts`（handler）、`electron/preload.ts`（wrapper）、`src/types/electron.d.ts`（型別）
-- UI 顏色使用 CSS variables（`var(--color-background-primary)` 等），避免 hardcode hex，除非是品牌色（如 `#7F77DD`）
-- 不引入新的 UI 套件，現有的 Tabler icons 已經足夠
+- TypeScript — avoid `any` where possible
+- New IPC channels must be updated in three places: `electron/main.ts` (handler), `electron/preload.ts` (wrapper), `src/types/electron.d.ts` (types)
+- UI colors use CSS variables (`var(--color-background-primary)`, etc.), avoid hardcoding hex unless it's a brand color
+- Do not introduce new UI libraries — existing Tabler icons are sufficient
 
-## 哪些貢獻最有幫助
+## Most Helpful Contributions
 
-- **Agent manifest 範例**：如果你把自己的 Agent 包裝成符合 `docs/agent-manifest-schema.json` 的格式並能被 AgentOS 正確匯入，歡迎開 PR 把它加進文件當範例
-- **跨平台支援**：目前只支援 Windows，如果你願意處理 macOS / Linux 的相容性問題非常歡迎
-- **Bug 回報**：請附上你的 Ollama 版本、AgentOS 版本、重現步驟
-- **文件改善**：README、CONTRIBUTING、程式碼註解的修正都歡迎
+- **Agent manifest examples**: If you package an agent matching `docs/agent-manifest-schema.json` and AgentOS imports it correctly, open a PR to add it as a documented example
+- **Cross-platform support**: Currently Windows-only. macOS / Linux compatibility contributions are very welcome
+- **Bug reports**: Include your Ollama version, AgentOS version, and reproduction steps
+- **Documentation**: README, CONTRIBUTING, code comment fixes are all welcome
 
-## 回報 Bug
+## Reporting Bugs
 
-請在 Issue 裡包含：
-- AgentOS 版本（設定頁面可查）
-- 作業系統版本
-- 是否使用本地模型或雲端 API，用的是哪個模型
-- 重現步驟
-- 如果方便，附上 `electron/main.ts` console 的錯誤訊息
+Please include in your Issue:
+- AgentOS version (found in Settings page)
+- OS version
+- Whether using local model or cloud API, and which model
+- Reproduction steps
+- If possible, console errors from `electron/main.ts`
 
-## 行為準則
+## Code of Conduct
 
-保持基本的尊重，討論技術問題對事不對人。
+Keep it respectful. Discuss technical issues on their merits.
