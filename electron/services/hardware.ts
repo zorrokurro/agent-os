@@ -1,28 +1,11 @@
 import si from 'systeminformation'
 import { exec } from 'child_process'
 import { promisify } from 'util'
+import type { GpuInfo, HardwareInfo } from '../../shared/types'
 
 const execAsync = promisify(exec)
 
-export interface GpuInfo {
-  model: string
-  vendor: string
-  vramMB: number
-  isActive: boolean
-  isDedicated: boolean
-}
-
-export interface HardwareInfo {
-  cpu: string
-  cpuCores: number
-  ramGB: number
-  gpu: string
-  vramGB: number
-  diskFreeGB: number
-  windowsVersion: string
-  recommendedModel: string
-  allGpus: GpuInfo[]
-}
+export type { GpuInfo, HardwareInfo }
 
 const MODEL_MAP: { minVram: number; model: string; label: string }[] = [
   { minVram: 12, model: 'llama3.1:8b', label: 'Llama 3.1 8B' },

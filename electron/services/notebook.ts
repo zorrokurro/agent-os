@@ -1,27 +1,8 @@
 import type { MemoryHub } from './ump/hub'
 import { createMemory, UniversalMemory } from './ump/schemas'
+import type { Notebook, Note } from '../../shared/types'
 
-export interface Notebook {
-  id: string
-  name: string
-  description: string
-  icon: string
-  color: string
-  noteCount: number
-  createdAt: string
-  updatedAt: string
-}
-
-export interface Note {
-  id: string
-  title: string
-  content: string
-  notebookId: string
-  tags: string[]
-  pinned: boolean
-  createdAt: string
-  updatedAt: string
-}
+export type { Notebook, Note }
 
 let hub: MemoryHub | null = null
 

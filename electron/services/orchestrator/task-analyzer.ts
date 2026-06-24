@@ -1,4 +1,4 @@
-export type AgentType = 'opencode' | 'hermes' | 'filesystem' | 'ump'
+export type AgentType = 'opencode' | 'hermes' | 'filesystem' | 'ump' | 'mcp'
 
 export interface Task {
   id: string
@@ -44,6 +44,12 @@ const KEYWORD_RULES: Array<{ keywords: string[]; agent: AgentType }> = [
       'research', 'search', 'query', 'find', 'analyze', 'compare', 'summarize',
       'write', '報告', 'report', '學習', '了解', '認識'],
     agent: 'hermes',
+  },
+  // MCP：外部工具呼叫
+  {
+    keywords: ['notion', 'github', 'slack', 'linear', 'jira', 'google calendar',
+      '使用工具', '呼叫工具', 'use tool', 'call tool', 'mcp'],
+    agent: 'mcp',
   },
 ]
 
@@ -146,6 +152,7 @@ export class TaskAnalyzer {
       hermes: 'Hermes（研究/搜尋）',
       filesystem: '檔案系統',
       ump: 'UMP 記憶層',
+      mcp: 'MCP 外部工具',
     }
     return names[agent] || agent
   }

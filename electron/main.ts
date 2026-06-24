@@ -17,6 +17,7 @@ import { MemoryHub } from './services/ump/hub'
 import { MemoryExchange } from './services/ump/exchange'
 import { SystemDetector } from './services/system-detector'
 import { Orchestrator } from './services/orchestrator/orchestrator'
+import { McpClientManager, type McpServerConfig } from './services/mcp/client'
 import * as discordService from './services/discord'
 import * as obsidianService from './services/obsidian'
 import Store from 'electron-store'
@@ -29,6 +30,7 @@ let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let isQuitting = false
 let umpHubInstance: InstanceType<typeof MemoryHub> | null = null
+const mcpManager = new McpClientManager()
 
 const isDev = !app.isPackaged
 
@@ -54,6 +56,7 @@ const store = new Store<{
   discordToken: string
   discordChannelId: string
   discordEnabled: boolean
+  mcpServers: McpServerConfig[]
 }>({
   encryptionKey: 'agentOS-2026-secure-key',
   name: 'settings',
@@ -79,6 +82,7 @@ const store = new Store<{
     discordToken: '',
     discordChannelId: '',
     discordEnabled: false,
+    mcpServers: [],
   },
 })
 
@@ -984,8 +988,18 @@ async function registerIPC() {
     }
   })
 
+  // MCP Client Manager
+  const savedMcpServers = (store.get('mcpServers') as McpServerConfig[]) || []
+  for (const server of savedMcpServers) {
+    if (server.enabled) {
+      await mcpManager.connectServer(server).catch(e =>
+        console.error(`[MCP] 連線失敗 ${server.id}:`, e)
+      )
+    }
+  }
+
   // Orchestrator
-  const orchestrator = new Orchestrator()
+  const orchestrator = new Orchestrator(mcpManager)
 
   orchestrator.on('progress', (data) => {
     mainWindow?.webContents.send('orchestrator:progress', data)
@@ -1013,6 +1027,63 @@ async function registerIPC() {
     } catch (e) {
       return `錯誤：${String(e)}`
     }
+  })
+
+  // === MCP (Model Context Protocol) ===
+  ipcMain.handle('mcp:list-servers', () => {
+    return (store.get('mcpServers') as McpServerConfig[]) || []
+  })
+
+  ipcMain.handle('mcp:add-server', async (_, config: McpServerConfig) => {
+    const servers = (store.get('mcpServers') as McpServerConfig[]) || []
+    servers.push(config)
+    store.set('mcpServers', servers)
+    if (config.enabled) {
+      return mcpManager.connectServer(config).then(() => ({ success: true }))
+        .catch(e => ({ success: false, error: String(e) }))
+    }
+    return { success: true }
+  })
+
+  ipcMain.handle('mcp:remove-server', async (_, serverId: string) => {
+    const servers = (store.get('mcpServers') as McpServerConfig[]) || []
+    store.set('mcpServers', servers.filter(s => s.id !== serverId))
+    return mcpManager.disconnectServer(serverId).then(() => ({ success: true }))
+  })
+
+  ipcMain.handle('mcp:toggle-server', async (_, serverId: string, enabled: boolean) => {
+    const servers = (store.get('mcpServers') as McpServerConfig[]) || []
+    const server = servers.find(s => s.id === serverId)
+    if (server) {
+      server.enabled = enabled
+      store.set('mcpServers', servers)
+      if (enabled) {
+        await mcpManager.connectServer(server)
+      } else {
+        await mcpManager.disconnectServer(serverId)
+      }
+    }
+    return { success: true }
+  })
+
+  ipcMain.handle('mcp:list-tools', async (_, serverId?: string) => {
+    if (serverId) {
+      return mcpManager.listTools(serverId)
+    }
+    return mcpManager.listAllTools()
+  })
+
+  ipcMain.handle('mcp:call-tool', async (_, serverId: string, toolName: string, args: Record<string, unknown>) => {
+    try {
+      const result = await mcpManager.callTool(serverId, toolName, args)
+      return { success: true, result }
+    } catch (e) {
+      return { success: false, error: String(e) }
+    }
+  })
+
+  ipcMain.handle('mcp:server-status', () => {
+    return mcpManager.getStatus()
   })
 
   // === Discord Integration ===
@@ -1097,6 +1168,7 @@ app.on('before-quit', (e) => {
   if (isQuitting) return
   isQuitting = true
   e.preventDefault()
+  mcpManager.shutdown().catch(() => {})
   if (umpHubInstance) umpHubInstance.close()
   const mgr = getAgentManager()
   const stability = stabilityService

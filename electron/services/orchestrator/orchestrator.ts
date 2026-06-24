@@ -4,6 +4,8 @@ import { AgentController } from './controllers/opencode-controller'
 import { OpenCodeController } from './controllers/opencode-controller'
 import { HermesController } from './controllers/hermes-controller'
 import { FilesystemController } from './controllers/filesystem-controller'
+import { McpController } from '../mcp/mcp-controller'
+import type { McpClientManager } from '../mcp/client'
 
 export interface OrchestratorEvent {
   type: 'task-start' | 'task-complete' | 'task-fail' | 'progress' | 'result'
@@ -18,13 +20,16 @@ export class Orchestrator extends EventEmitter {
   private currentGraph: TaskGraph | null = null
   private isRunning = false
 
-  constructor() {
+  constructor(mcpManager?: McpClientManager) {
     super()
     this.analyzer = new TaskAnalyzer()
     this.controllers = new Map()
     this.controllers.set('opencode', new OpenCodeController())
     this.controllers.set('hermes', new HermesController())
     this.controllers.set('filesystem', new FilesystemController())
+    if (mcpManager) {
+      this.controllers.set('mcp', new McpController(mcpManager))
+    }
   }
 
   async execute(prompt: string): Promise<string> {

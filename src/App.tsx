@@ -9,10 +9,11 @@ import UMPage from './components/UMPage';
 import OrchestratorPage from './pages/OrchestratorPage';
 import CouncilPage from './components/CouncilPage';
 import NotebookPage from './components/NotebookPage';
+import McpPage from './pages/McpPage';
 import CurrentTimeButton from './components/CurrentTimeButton';
 import BrainLayout from './components/brain/BrainLayout';
 
-type PageKey = 'brain' | 'library' | 'memory' | 'research' | 'store' | 'ump' | 'settings' | 'orchestrator' | 'council' | 'notebook'
+type PageKey = 'brain' | 'library' | 'memory' | 'research' | 'store' | 'ump' | 'settings' | 'orchestrator' | 'council' | 'notebook' | 'mcp'
 
 function applyDarkClass(darkMode: boolean) {
   if (darkMode) {
@@ -93,6 +94,7 @@ function App() {
           <NavButton active={page === 'ump'} onClick={() => setPage('ump')} icon="hub" label="UMP 記憶協議" />
           <div style={{ margin: '12px 8px', borderTop: '1px solid rgba(255,255,255,0.1)' }} />
           <NavButton active={page === 'orchestrator'} onClick={() => setPage('orchestrator')} icon="hub" label="Orchestrator" />
+          <NavButton active={page === 'mcp'} onClick={() => setPage('mcp')} icon="extension" label="MCP" />
           <NavButton active={page === 'council'} onClick={() => setPage('council')} icon="groups" label="LLM Council" />
         </div>
 
@@ -114,6 +116,7 @@ function App() {
           {page === 'store' && <StorePage />}
           {page === 'ump' && <UMPage />}
           {page === 'orchestrator' && <OrchestratorPage />}
+          {page === 'mcp' && <McpPage />}
           {page === 'council' && <CouncilPage />}
           {page === 'settings' && <SettingsPage />}
         </div>

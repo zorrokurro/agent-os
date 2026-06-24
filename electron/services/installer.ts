@@ -1,25 +1,11 @@
 import { BrowserWindow } from 'electron'
-import { detectHardware, HardwareInfo, computeRecommendedModel } from './hardware'
+import { detectHardware, computeRecommendedModel } from './hardware'
 import { checkOllama, installOllama, pullModel, startOllamaServe } from './ollama'
 import { checkHermesInstalled, installHermes, ensureHermesDir, HermesConfig } from './hermes'
-import { getDefaultModel, ProviderId } from './model-providers'
+import { getDefaultModel } from './model-providers'
+import type { HardwareInfo, ProviderId, InstallOptions, ProgressData } from '../../shared/types'
 
-export interface InstallOptions {
-  agents: string[]
-  runMode: 'local' | 'api' | 'both'
-  modelPreference: 'speed' | 'memory' | 'auto'
-  providerId: ProviderId
-  modelId: string
-  apiKey: string
-  autoStart: boolean
-  selectedGpuIndex: number
-}
-
-export interface ProgressData {
-  step: string
-  percent: number
-  message: string
-}
+export type { InstallOptions, ProgressData }
 
 type ProgressCallback = (data: ProgressData) => void
 

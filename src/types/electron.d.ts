@@ -153,6 +153,15 @@ declare global {
       obsidianTest: (vaultPath: string) => Promise<{ ok: boolean; message: string }>
       obsidianWatch: () => Promise<{ success: boolean; message: string }>
       obsidianWatchStop: () => Promise<{ success: boolean }>
+
+      // MCP (Model Context Protocol)
+      mcpListServers: () => Promise<McpServerConfig[]>
+      mcpAddServer: (config: McpServerConfig) => Promise<{ success: boolean; error?: string }>
+      mcpRemoveServer: (serverId: string) => Promise<{ success: boolean }>
+      mcpToggleServer: (serverId: string, enabled: boolean) => Promise<{ success: boolean }>
+      mcpListTools: (serverId?: string) => Promise<McpToolInfo[]>
+      mcpCallTool: (serverId: string, toolName: string, args: Record<string, unknown>) => Promise<{ success: boolean; result?: unknown; error?: string }>
+      mcpServerStatus: () => Promise<McpServerStatus[]>
     }
   }
 }
@@ -209,6 +218,32 @@ export interface SystemAgent {
   installed: boolean
   running: boolean
   details: Record<string, unknown>
+}
+
+export interface McpServerConfig {
+  id: string
+  name: string
+  transport: 'stdio' | 'sse'
+  command?: string
+  args?: string[]
+  env?: Record<string, string>
+  url?: string
+  enabled: boolean
+}
+
+export interface McpToolInfo {
+  serverId: string
+  name: string
+  description: string
+  inputSchema: Record<string, unknown>
+}
+
+export interface McpServerStatus {
+  id: string
+  name: string
+  connected: boolean
+  toolCount: number
+  error?: string
 }
 
 export {}

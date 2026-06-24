@@ -4,17 +4,9 @@ import fs from 'fs'
 import os from 'os'
 import http from 'http'
 import { statSync } from 'fs'
+import type { SystemAgent } from '../../shared/types'
 
-export interface SystemAgent {
-  id: string
-  name: string
-  source: 'ollama' | 'pip' | 'npm' | 'path' | 'docker' | 'directory' | 'standalone'
-  version: string
-  description: string
-  installed: boolean
-  running: boolean
-  details: Record<string, unknown>
-}
+export type { SystemAgent }
 
 // Known standalone AI agents to detect (with health check config)
 const KNOWN_STANDALONE_AGENTS = [

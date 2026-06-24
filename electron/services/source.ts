@@ -2,17 +2,9 @@ import fs from 'fs'
 import path from 'path'
 import type { MemoryHub } from './ump/hub'
 import { createMemory, UniversalMemory } from './ump/schemas'
+import type { Source } from '../../shared/types'
 
-export interface Source {
-  id: string
-  title: string
-  type: 'pdf' | 'url' | 'text'
-  preview: string
-  content: string
-  tags: string[]
-  createdAt: string
-  metadata: Record<string, unknown>
-}
+export type { Source }
 
 let hub: MemoryHub | null = null
 

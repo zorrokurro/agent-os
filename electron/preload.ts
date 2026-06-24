@@ -218,6 +218,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   obsidianTest: (vaultPath: string) => ipcRenderer.invoke('obsidian:test', vaultPath),
   obsidianWatch: () => ipcRenderer.invoke('obsidian:watch'),
   obsidianWatchStop: () => ipcRenderer.invoke('obsidian:watch-stop'),
+
+  // MCP (Model Context Protocol)
+  mcpListServers: () => ipcRenderer.invoke('mcp:list-servers'),
+  mcpAddServer: (config: Record<string, unknown>) => ipcRenderer.invoke('mcp:add-server', config),
+  mcpRemoveServer: (serverId: string) => ipcRenderer.invoke('mcp:remove-server', serverId),
+  mcpToggleServer: (serverId: string, enabled: boolean) => ipcRenderer.invoke('mcp:toggle-server', serverId, enabled),
+  mcpListTools: (serverId?: string) => ipcRenderer.invoke('mcp:list-tools', serverId),
+  mcpCallTool: (serverId: string, toolName: string, args: Record<string, unknown>) => ipcRenderer.invoke('mcp:call-tool', serverId, toolName, args),
+  mcpServerStatus: () => ipcRenderer.invoke('mcp:server-status'),
 })
 
 // Type declarations (for TypeScript tooling)

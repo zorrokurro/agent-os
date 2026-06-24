@@ -1,24 +1,6 @@
-export interface ProviderModel {
-  id: string
-  name: string
-  description: string
-  contextLength: number
-  strengths: string[]
-}
+import type { ProviderModel, ModelProvider, ProviderId } from '../../shared/types'
 
-export interface ModelProvider {
-  id: string
-  name: string
-  description: string
-  apiBase: string
-  apiKeyEnvVar: string
-  requiresKey: boolean
-  requiresLocal: boolean
-  models: ProviderModel[]
-  website: string
-}
-
-export type ProviderId = 'ollama' | 'openrouter' | 'anthropic' | 'openai'
+export type { ProviderModel, ModelProvider, ProviderId }
 
 const PROVIDERS: Record<ProviderId, ModelProvider> = {
   ollama: {
