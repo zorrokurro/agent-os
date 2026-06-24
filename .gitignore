@@ -15,3 +15,7 @@ release/
 
 # Cloned agents (installed via GitHub installer)
 agents/
+
+# Test logs and reports
+demo/
+audiobook/
