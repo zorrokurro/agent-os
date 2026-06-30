@@ -6,11 +6,8 @@
 
 ## 🟠 高優先（建議盡快處理）
 
-### H1: TypeScript `strict: false`
-- **位置:** `tsconfig.json:6`
-- **問題:** 關閉所有嚴格檢查（noImplicitAny, strictNullChecks 等），隱藏大量 bug
-- **影響:** 開啟後可能有數十個型別錯誤需修正
-- **建議:** 分階段開啟，先開 `strictNullChecks`，再開 `noImplicitAny`
+### ~~H1: TypeScript `strict: false`~~ ✅ 已修正
+- **修正:** 分三階段啟用：`noImplicitAny` → `strictNullChecks` → `strict: true`，全部 0 errors
 
 ### ~~H2: Type duplicates in electron.d.ts~~ ✅ 已修正
 - **修正:** MCP 三型別統一到 `shared/types.ts`，`electron.d.ts` 改為 import，`McpPage.tsx` 直接 import `shared/types`
@@ -28,15 +25,11 @@
 ### ~~M1: 主進程同步 I/O~~ ✅ 已修正
 - **修正:** `main.ts` 中 `readFileSync` 改為 `fs.promises.readFile`（get-agent-logs, get-agent-docs, get-agent-catalog）
 
-### M2: `shell: true` in spawn
-- **位置:** agent-manager.ts, hermes.ts, ollama.ts, stability.ts, installer-github.ts
-- **問題:** 潛在 shell injection 風險
-- **建議:** 改用 `shell: false` + 陣列參數
+### ~~M2: `shell: true` in spawn~~ ✅ 已修正
+- **修正:** 所有 `shell: true` 改為 `shell: false`（agent-manager, hermes, installer-github, ollama, stability）
 
-### M3: IPC 無輸入驗證
-- **位置:** `main.ts` 多數 IPC handler
-- **問題:** 接受任意參數，無型別/範圍驗證
-- **建議:** 加入 zod 或手動驗證
+### ~~M3: IPC 無輸入驗證~~ ✅ 已修正
+- **修正:** 新增 `electron/ipc/validate.ts`，使用 Zod 4 為所有 IPC handler 建立 schema 驗證（agent ID、file path、chat message、settings、MCP config、GitHub URL 等）
 
 ### M4: 元件過大
 - **位置:** NotebookPage(804), LibraryPage(564), InstallPage(539), CouncilPage(631)
@@ -88,9 +81,8 @@
 ### ~~L6: `test` 腳本誤導~~ ✅ 已修正
 - **修正:** 保留 `test` 腳本（tsc --noEmit），新增 `typecheck` 別名
 
-### L7: 無 lint/format 腳本
-- 缺少 ESLint、Prettier 設定
-- 建議：加入 lint 腳本
+### ~~L7: 無 lint/format 腳本~~ ✅ 已修正
+- **修正:** 安裝 ESLint 9 (flat config) + Prettier，加入 `lint`/`lint:fix`/`format`/`format:check` scripts
 
 ### L9: 無 macOS/Linux 支援
 - `electron-builder.json` 僅 Windows x64
@@ -121,13 +113,9 @@
 
 | 項目 | 優先級 | 說明 |
 |------|--------|------|
-| H1 | 高 | TypeScript strict mode（需大量型別修正） |
-| M2 | 中 | shell:true → shell:false（需逐一測試） |
-| M3 | 中 | IPC 輸入驗證（需加 zod 或手動驗證） |
 | M4 | 中 | 元件拆分（大工程） |
 | M5 | 中 | polling → WebSocket（架構變更） |
 | L2 | 低 | i18n 統一 |
 | L3 | 低 | CSS modules |
 | L4 | 低 | a11y |
-| L7 | 低 | ESLint/Prettier |
 | L9 | 低 | macOS/Linux 支援 |

@@ -299,7 +299,7 @@ function ControlsTab({ agent, agentStatus, onToggleAgent, onTabChange }: { agent
   useEffect(() => {
     Promise.all([
       window.electronAPI.listModels(),
-      window.electronAPI.listApiModels().catch(() => []),
+      window.electronAPI.listApiModels().catch((): string[] => []),
     ]).then(([ollama, api]) => {
       const all = [...ollama, ...api]
       setModels(all)
@@ -492,7 +492,7 @@ function ConfigTab({ agent }: { agent: AgentInfo }) {
   useEffect(() => {
     Promise.all([
       window.electronAPI.listModels(),
-      window.electronAPI.listApiModels().catch(() => []),
+      window.electronAPI.listApiModels().catch((): string[] => []),
     ]).then(([ollama, api]) => setModels([...ollama, ...api]))
   }, [])
 

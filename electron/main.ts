@@ -4,6 +4,7 @@ import { execSync, spawn } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import crypto from 'crypto'
+import { validate, schemas } from './ipc/validate'
 import { detectHardware } from './services/hardware'
 import { getAgentManager } from './services/agent-manager'
 import { checkOllama, installOllama, pullModel, listModels, startOllamaServe, chat } from './services/ollama'
@@ -175,7 +176,8 @@ async function registerIPC() {
   })
 
   ipcMain.handle('pull-model', async (_, model: string) => {
-    return await pullModel(model, (msg, pct) => {
+    const validModel = validate(schemas.safeString, model)
+    return await pullModel(validModel, (msg, pct) => {
       mainWindow?.webContents.send('install-progress', { step: 'model-pull', percent: pct, message: msg })
     })
   })
@@ -197,12 +199,14 @@ async function registerIPC() {
   })
 
   ipcMain.handle('set-model-config', (_e, config: Record<string, string>) => {
-    store.set('modelConfig', config)
+    const valid = validate(schemas.settingsUpdate, config)
+    store.set('modelConfig', valid)
     return true
   })
 
   ipcMain.handle('chat', async (_, model: string, messages: Array<{ role: string; content: string }>) => {
-    return await chat(model, messages, undefined, store.get('ollamaUrl'))
+    const valid = validate(schemas.chatInput, { model, messages })
+    return await chat(valid.model, valid.messages, undefined, store.get('ollamaUrl'))
   })
 
   ipcMain.handle('chat-stream', async (event, model: string, messages: Array<{ role: string; content: string }>) => {
@@ -266,28 +270,32 @@ async function registerIPC() {
   })
 
   ipcMain.handle('toggle-favorite', (_, agentId: string) => {
+    const validId = validate(schemas.agentId, agentId)
     const favorites = (store.get('favorites') as string[]) || []
-    const idx = favorites.indexOf(agentId)
+    const idx = favorites.indexOf(validId)
     if (idx >= 0) {
       favorites.splice(idx, 1)
     } else {
-      favorites.push(agentId)
+      favorites.push(validId)
     }
     store.set('favorites', favorites)
     return { success: true, favorites }
   })
 
   ipcMain.handle('is-favorite', (_, agentId: string) => {
+    const validId = validate(schemas.agentId, agentId)
     const favorites = (store.get('favorites') as string[]) || []
-    return favorites.includes(agentId)
+    return favorites.includes(validId)
   })
 
   ipcMain.handle('start-agent', async (_, id: string) => {
-    return agentMgr.startAgent(id)
+    const validId = validate(schemas.agentId, id)
+    return agentMgr.startAgent(validId)
   })
 
   ipcMain.handle('stop-agent', async (_, id: string) => {
-    return { success: await agentMgr.stopAgent(id) }
+    const validId = validate(schemas.agentId, id)
+    return { success: await agentMgr.stopAgent(validId) }
   })
 
   ipcMain.handle('install-agent', async (_, options: { agents: string[] }) => {
@@ -297,12 +305,14 @@ async function registerIPC() {
   })
 
   ipcMain.handle('upgrade-agent', async (_, id: string) => {
-    const ok = await agentMgr.upgradeAgent(id)
+    const validId = validate(schemas.agentId, id)
+    const ok = await agentMgr.upgradeAgent(validId)
     return { success: ok, error: ok ? '' : '升級失敗' }
   })
 
   ipcMain.handle('get-agent-status', async (_, id: string) => {
-    const s = agentMgr.getStatus(id)
+    const validId = validate(schemas.agentId, id)
+    const s = agentMgr.getStatus(validId)
     return { status: s?.status || 'stopped' as const }
   })
 
@@ -340,9 +350,10 @@ async function registerIPC() {
 
   // === GitHub Import ===
   ipcMain.handle('import-agent-from-github', async (_, url: string) => {
+    const validUrl = validate(schemas.githubUrl, url)
     try {
       const { installRepo } = await import('./services/installer-github')
-      const result = await installRepo(url, (line: string) => {
+      const result = await installRepo(validUrl, (line: string) => {
         console.log(`[GitHub Import] ${line}`)
       }, { requireManifest: true })
       return { success: result.success, message: result.success ? `✅ 成功匯入 agent` : result.error }
@@ -355,19 +366,21 @@ async function registerIPC() {
 
   // === GitHub Installer ===
   ipcMain.handle('github:analyze', async (_, url: string) => {
+    const validUrl = validate(schemas.githubUrl, url)
     const { analyzeRepo } = await import('./services/installer-github')
     try {
-      return await analyzeRepo(url)
+      return await analyzeRepo(validUrl)
     } catch (e) {
       throw e instanceof Error ? e : new Error(String(e))
     }
   })
 
   ipcMain.handle('github:install', async (event, url: string) => {
+    const validUrl = validate(schemas.githubUrl, url)
     const { installRepo } = await import('./services/installer-github')
     const sender = event.sender
     try {
-      return await installRepo(url, (line: string) => {
+      return await installRepo(validUrl, (line: string) => {
         sender.send('github:install-log', line)
       })
     } catch (e) {
@@ -376,7 +389,8 @@ async function registerIPC() {
   })
 
   ipcMain.handle('health-check-agent', async (_, id: string) => {
-    const ok = await agentMgr.healthCheck(id)
+    const validId = validate(schemas.agentId, id)
+    const ok = await agentMgr.healthCheck(validId)
     return { healthy: ok }
   })
 
@@ -396,8 +410,9 @@ async function registerIPC() {
 
   ipcMain.handle('get-settings', () => store.store)
   ipcMain.handle('set-settings', (_, settings: Record<string, unknown>) => {
+    const valid = validate(schemas.settingsUpdate, settings)
     const prevDarkMode = store.get('darkMode')
-    for (const [key, value] of Object.entries(settings)) {
+    for (const [key, value] of Object.entries(valid)) {
       store.set(key as keyof typeof store.store, value)
     }
     // Notify renderer if darkMode changed
@@ -424,10 +439,11 @@ async function registerIPC() {
   })
 
   ipcMain.handle('set-full-settings', (_e, s: Record<string, string>) => {
-    if (s.ollamaUrl   !== undefined) store.set('ollamaUrl',   s.ollamaUrl)
-    if (s.apiProvider !== undefined) store.set('apiProvider', s.apiProvider)
-    if (s.apiKey      !== undefined) store.set('apiKey',      s.apiKey)
-    if (s.apiModel    !== undefined) store.set('apiModel',    s.apiModel)
+    const valid = validate(schemas.fullSettings, s)
+    if (valid.ollamaUrl   !== undefined) store.set('ollamaUrl',   valid.ollamaUrl)
+    if (valid.apiProvider !== undefined) store.set('apiProvider', valid.apiProvider)
+    if (valid.apiKey      !== undefined) store.set('apiKey',      valid.apiKey)
+    if (valid.apiModel    !== undefined) store.set('apiModel',    valid.apiModel)
     return true
   })
 
@@ -458,9 +474,10 @@ async function registerIPC() {
 
   // === OpenRouter Chat ===
   ipcMain.handle('openrouter-chat', async (_, apiKey: string, model: string, messages: Array<{ role: string; content: string }>) => {
+    const valid = validate(schemas.openrouterChatInput, { apiKey, model, messages })
     const { net } = await import('electron')
-    const resolvedModel = model || 'openai/gpt-4o-mini'
-    const body = JSON.stringify({ model: resolvedModel, messages, max_tokens: 1024, temperature: 0.7 })
+    const resolvedModel = valid.model || 'openai/gpt-4o-mini'
+    const body = JSON.stringify({ model: resolvedModel, messages: valid.messages, max_tokens: 1024, temperature: 0.7 })
     return new Promise<string>((resolve, reject) => {
       const request = net.request({
         method: 'POST',
@@ -504,8 +521,9 @@ async function registerIPC() {
 
   // === Council Deliberation ===
   ipcMain.handle('council-get-councillor-responses', async (_, apiKey: string, model: string, question: string, mode: string) => {
+    const valid = validate(schemas.councilInput, { apiKey, model, question, mode })
     const { getCouncillorResponses } = await import('./services/council-service')
-    return getCouncillorResponses(apiKey, model, question, mode)
+    return getCouncillorResponses(valid.apiKey, valid.model, valid.question, valid.mode)
   })
 
   ipcMain.handle('council-get-peer-rankings', async (_, apiKey: string, model: string, question: string, councillorResponses: Array<{ id: string; name: string; response: string }>) => {
@@ -541,8 +559,9 @@ async function registerIPC() {
   })
 
   ipcMain.handle('get-memory-item-content', async (_, filePath: string) => {
-    if (filePath.startsWith('ump-session:')) {
-      const sessionId = filePath.slice('ump-session:'.length)
+    const validPath = validate(schemas.filePath, filePath)
+    if (validPath.startsWith('ump-session:')) {
+      const sessionId = validPath.slice('ump-session:'.length)
       const messages = umpHub.getSessionMessages(sessionId)
       const content = messages.map(m =>
         `**${m.role === 'user' ? 'User' : m.role === 'assistant' ? 'Agent' : 'System'}**: ${m.content}`
@@ -554,8 +573,10 @@ async function registerIPC() {
   })
 
   ipcMain.handle('save-memory-item', async (_, filePath: string, content: string) => {
+    const validPath = validate(schemas.filePath, filePath)
+    const validContent = validate(schemas.memoryContent, content)
     const { saveMemoryItem } = await import('./services/memory')
-    return saveMemoryItem(filePath, content)
+    return saveMemoryItem(validPath, validContent)
   })
 
   ipcMain.handle('save-conversation', async (_, agentName: string, messages: Array<{ role: string; content: string }>) => {
@@ -590,8 +611,9 @@ async function registerIPC() {
 
   // === Task Queue ===
   ipcMain.handle('ump:create-task', (_, title: string, content: string, target: string, source?: string) => {
+    const valid = validate(schemas.umpTask, { title, content, target, source })
     try {
-      return umpHub.createTask(title, content, target, source)
+      return umpHub.createTask(valid.title, valid.content, valid.target, valid.source)
     } catch (e) { return { error: String(e) } }
   })
 
@@ -602,8 +624,10 @@ async function registerIPC() {
   })
 
   ipcMain.handle('ump:update-task', (_, id: string, status: string, result?: string) => {
+    const validId = validate(schemas.agentId, id)
+    const validStatus = validate(schemas.safeString, status)
     try {
-      const ok = umpHub.updateTaskStatus(id, status, result)
+      const ok = umpHub.updateTaskStatus(validId, validStatus, result)
       if (ok && status === 'completed' && discordService.isRunning()) {
         const tasks = umpHub.getTasks()
         const task = tasks.find(t => t.id === id)
@@ -741,14 +765,15 @@ async function registerIPC() {
   })
 
   ipcMain.handle('ump-add-memory', async (_, params: { content: string; memoryType?: string; tags?: string[]; group_id?: string }) => {
+    const valid = validate(schemas.umpMemory, params)
     try {
       const { createMemory } = await import('./services/ump/schemas')
       const mem = createMemory({
         id: crypto.randomUUID(),
-        content: params.content,
-        memory_type: (params.memoryType as 'semantic' | 'episodic' | 'procedural' | 'graph') || 'episodic',
-        tags: params.tags || [],
-        group_id: params.group_id,
+        content: valid.content,
+        memory_type: (valid.memoryType as 'semantic' | 'episodic' | 'procedural' | 'graph') || 'episodic',
+        tags: valid.tags || [],
+        group_id: valid.group_id,
       })
       return umpHub.addMemory(mem)
     } catch (e) { return false }
@@ -763,51 +788,62 @@ async function registerIPC() {
   })
 
   ipcMain.handle('notebook:get', (_, id: string) => {
-    try { return notebookService.getNotebook(id) }
+    const validId = validate(schemas.agentId, id)
+    try { return notebookService.getNotebook(validId) }
     catch (e) { return null }
   })
 
   ipcMain.handle('notebook:create', (_, name: string, description?: string, icon?: string, color?: string) => {
-    const result = notebookService.createNotebook(name, description, icon, color)
+    const validName = validate(schemas.notebookName, name)
+    const result = notebookService.createNotebook(validName, description, icon, color)
     return result
   })
 
   ipcMain.handle('notebook:update', (_, id: string, updates: Record<string, unknown>) => {
-    return notebookService.updateNotebook(id, updates as any)
+    const validId = validate(schemas.agentId, id)
+    return notebookService.updateNotebook(validId, updates as any)
   })
 
   ipcMain.handle('notebook:delete', (_, id: string) => {
-    try { return notebookService.deleteNotebook(id) }
+    const validId = validate(schemas.agentId, id)
+    try { return notebookService.deleteNotebook(validId) }
     catch (e) { return false }
   })
 
   ipcMain.handle('note:list', (_, notebookId: string) => {
-    try { return notebookService.listNotes(notebookId) }
+    const validId = validate(schemas.agentId, notebookId)
+    try { return notebookService.listNotes(validId) }
     catch (e) { return [] }
   })
 
   ipcMain.handle('note:get', (_, id: string) => {
-    try { return notebookService.getNote(id) }
+    const validId = validate(schemas.agentId, id)
+    try { return notebookService.getNote(validId) }
     catch (e) { return null }
   })
 
   ipcMain.handle('note:create', (_, notebookId: string, title: string, content?: string, tags?: string[]) => {
-    try { return notebookService.createNote(notebookId, title, content, tags) }
+    const validNotebookId = validate(schemas.agentId, notebookId)
+    const validTitle = validate(schemas.noteTitle, title)
+    try { return notebookService.createNote(validNotebookId, validTitle, content, tags) }
     catch (e) { return { error: String(e) } }
   })
 
   ipcMain.handle('note:update', (_, id: string, updates: Record<string, unknown>) => {
-    try { return notebookService.updateNote(id, updates as any) }
+    const validId = validate(schemas.agentId, id)
+    try { return notebookService.updateNote(validId, updates as any) }
     catch (e) { return { error: String(e) } }
   })
 
   ipcMain.handle('note:delete', (_, id: string) => {
-    try { return notebookService.deleteNote(id) }
+    const validId = validate(schemas.agentId, id)
+    try { return notebookService.deleteNote(validId) }
     catch (e) { return false }
   })
 
   ipcMain.handle('note:search', (_, query: string, notebookId?: string, limit?: number) => {
-    try { return notebookService.searchNotes(query, notebookId, limit) }
+    const validQuery = validate(schemas.safeString, query)
+    try { return notebookService.searchNotes(validQuery, notebookId, limit) }
     catch (e) { return [] }
   })
 
@@ -817,7 +853,8 @@ async function registerIPC() {
   })
 
   ipcMain.handle('note:by-tag', (_, tag: string, limit?: number) => {
-    try { return notebookService.getNotesByTag(tag, limit) }
+    const validTag = validate(schemas.safeString, tag)
+    try { return notebookService.getNotesByTag(validTag, limit) }
     catch (e) { return [] }
   })
 
@@ -827,6 +864,7 @@ async function registerIPC() {
   setSourceHub(umpHub)
 
   ipcMain.handle('source:import-pdf', async (_, notebookId: string) => {
+    const validId = validate(schemas.agentId, notebookId)
     const { dialog } = await import('electron')
     const result = await dialog.showOpenDialog({
       title: '選擇 PDF 檔案',
@@ -835,7 +873,7 @@ async function registerIPC() {
     })
     if (result.canceled || result.filePaths.length === 0) return { canceled: true }
     try {
-      const source = await sourceService.importPDF(result.filePaths[0], notebookId)
+      const source = await sourceService.importPDF(result.filePaths[0], validId)
       return source
     } catch (e) {
       console.error('[Source] PDF import failed:', e)
@@ -844,8 +882,10 @@ async function registerIPC() {
   })
 
   ipcMain.handle('source:import-url', async (_, url: string, notebookId: string) => {
+    const validUrl = validate(schemas.safeUrl, url)
+    const validId = validate(schemas.agentId, notebookId)
     try {
-      return await sourceService.importURL(url, notebookId)
+      return await sourceService.importURL(validUrl, validId)
     } catch (e) {
       console.error('[Source] URL import failed:', e)
       return { error: String(e) }
@@ -853,8 +893,10 @@ async function registerIPC() {
   })
 
   ipcMain.handle('source:import-text', (_, text: string, notebookId: string) => {
+    const validText = validate(schemas.safeString, text)
+    const validId = validate(schemas.agentId, notebookId)
     try {
-      return sourceService.importText(text, notebookId)
+      return sourceService.importText(validText, validId)
     } catch (e) {
       console.error('[Source] Text import failed:', e)
       return { error: String(e) }
@@ -862,12 +904,14 @@ async function registerIPC() {
   })
 
   ipcMain.handle('source:get', (_, notebookId: string) => {
-    try { return sourceService.getSources(notebookId) }
+    const validId = validate(schemas.agentId, notebookId)
+    try { return sourceService.getSources(validId) }
     catch (e) { return [] }
   })
 
   ipcMain.handle('source:delete', (_, sourceId: string) => {
-    try { return sourceService.deleteSource(sourceId) }
+    const validId = validate(schemas.agentId, sourceId)
+    try { return sourceService.deleteSource(validId) }
     catch (e) { return false }
   })
 
@@ -1001,8 +1045,9 @@ async function registerIPC() {
   })
 
   ipcMain.handle('orchestrator:execute', async (_, prompt: string) => {
+    const validPrompt = validate(schemas.safeString, prompt)
     try {
-      return await orchestrator.execute(prompt)
+      return await orchestrator.execute(validPrompt)
     } catch (e) {
       return `錯誤：${String(e)}`
     }
@@ -1014,32 +1059,35 @@ async function registerIPC() {
   })
 
   ipcMain.handle('mcp:add-server', async (_, config: McpServerConfig) => {
+    const valid = validate(schemas.mcpServerConfig, config)
     const servers = (store.get('mcpServers') as McpServerConfig[]) || []
-    servers.push(config)
+    servers.push(valid)
     store.set('mcpServers', servers)
-    if (config.enabled) {
-      return mcpManager.connectServer(config).then(() => ({ success: true }))
+    if (valid.enabled) {
+      return mcpManager.connectServer(valid).then(() => ({ success: true }))
         .catch(e => ({ success: false, error: String(e) }))
     }
     return { success: true }
   })
 
   ipcMain.handle('mcp:remove-server', async (_, serverId: string) => {
+    const validId = validate(schemas.agentId, serverId)
     const servers = (store.get('mcpServers') as McpServerConfig[]) || []
-    store.set('mcpServers', servers.filter(s => s.id !== serverId))
-    return mcpManager.disconnectServer(serverId).then(() => ({ success: true }))
+    store.set('mcpServers', servers.filter(s => s.id !== validId))
+    return mcpManager.disconnectServer(validId).then(() => ({ success: true }))
   })
 
   ipcMain.handle('mcp:toggle-server', async (_, serverId: string, enabled: boolean) => {
+    const validId = validate(schemas.agentId, serverId)
     const servers = (store.get('mcpServers') as McpServerConfig[]) || []
-    const server = servers.find(s => s.id === serverId)
+    const server = servers.find(s => s.id === validId)
     if (server) {
       server.enabled = enabled
       store.set('mcpServers', servers)
       if (enabled) {
         await mcpManager.connectServer(server)
       } else {
-        await mcpManager.disconnectServer(serverId)
+        await mcpManager.disconnectServer(validId)
       }
     }
     return { success: true }
@@ -1053,8 +1101,9 @@ async function registerIPC() {
   })
 
   ipcMain.handle('mcp:call-tool', async (_, serverId: string, toolName: string, args: Record<string, unknown>) => {
+    const valid = validate(schemas.mcpToolCall, { serverId, toolName, args })
     try {
-      const result = await mcpManager.callTool(serverId, toolName, args)
+      const result = await mcpManager.callTool(valid.serverId, valid.toolName, valid.args)
       return { success: true, result }
     } catch (e) {
       return { success: false, error: String(e) }
@@ -1072,7 +1121,6 @@ async function registerIPC() {
       channelId: store.get('discordChannelId'),
       enabled: store.get('discordEnabled'),
     }
-    console.log(`[Discord] discord:start — channelId="${config.channelId}" token=${config.token ? '***' : 'EMPTY'} enabled=${config.enabled}`)
     if (!config.token || !config.channelId) {
       return { success: false, message: '缺少 Token 或頻道 ID' }
     }
@@ -1084,7 +1132,8 @@ async function registerIPC() {
   })
 
   ipcMain.handle('discord:send', async (_, text: string) => {
-    return discordService.sendMessage(text)
+    const validText = validate(schemas.discordMessage, text)
+    return discordService.sendMessage(validText)
   })
 
   ipcMain.handle('discord:test', async () => {

@@ -20,17 +20,21 @@ export const AGENT_PROCESS_NAMES: Record<string, string[]> = {
 
 // ─── Layer 1: HTTP health check ─────────────────────────────────────────────
 
-export async function checkHealthEndpoint(
-  healthCheck: { type: string; url?: string; timeout?: number }
-): Promise<boolean> {
+export async function checkHealthEndpoint(healthCheck: {
+  type: string
+  url?: string
+  timeout?: number
+}): Promise<boolean> {
   if (healthCheck.type === 'none' || !healthCheck.url) return false
   if (healthCheck.type === 'http') {
     try {
       const res = await fetch(healthCheck.url, {
-        signal: AbortSignal.timeout(healthCheck.timeout ?? 2000)
+        signal: AbortSignal.timeout(healthCheck.timeout ?? 2000),
       })
       return res.ok
-    } catch { return false }
+    } catch {
+      return false
+    }
   }
   return false
 }
@@ -42,14 +46,15 @@ export function detectByProcessName(agentId: string): boolean {
   if (!targets || targets.length === 0) return false
 
   try {
-    const result = execSync(
-      'tasklist /FO CSV /NH',
-      { encoding: 'utf-8', timeout: 3000, windowsHide: true }
-    )
-    const running = result.split('\n').map(line =>
-      line.split(',')[0].replace(/"/g, '').trim().toLowerCase()
-    )
-    return targets.some(t => running.includes(t.toLowerCase()))
+    const result = execSync('tasklist /FO CSV /NH', {
+      encoding: 'utf-8',
+      timeout: 3000,
+      windowsHide: true,
+    })
+    const running = result
+      .split('\n')
+      .map((line) => line.split(',')[0].replace(/"/g, '').trim().toLowerCase())
+    return targets.some((t) => running.includes(t.toLowerCase()))
   } catch {
     return false
   }
@@ -59,14 +64,15 @@ export function detectByProcessName(agentId: string): boolean {
 
 export function checkPortAndProcess(
   ports: number[],
-  processNames: string[]
+  processNames: string[],
 ): { running: boolean; pid?: number } {
   for (const port of ports) {
     try {
-      const result = execSync(
-        `netstat -ano | findstr ":${port} "`,
-        { encoding: 'utf-8', timeout: 3000, windowsHide: true }
-      )
+      const result = execSync(`netstat -ano | findstr ":${port} "`, {
+        encoding: 'utf-8',
+        timeout: 3000,
+        windowsHide: true,
+      })
       const lines = result.trim().split('\n').filter(Boolean)
       for (const line of lines) {
         if (!line.includes('LISTENING')) continue
@@ -75,31 +81,34 @@ export function checkPortAndProcess(
         if (!pid) continue
 
         try {
-          const nameResult = execSync(
-            `tasklist /FI "PID eq ${pid}" /FO CSV /NH`,
-            { encoding: 'utf-8', timeout: 3000, windowsHide: true }
-          )
+          const nameResult = execSync(`tasklist /FI "PID eq ${pid}" /FO CSV /NH`, {
+            encoding: 'utf-8',
+            timeout: 3000,
+            windowsHide: true,
+          })
           const procName = nameResult.split(',')[0].replace(/"/g, '').toLowerCase()
 
           if (processNames.length > 0) {
-            if (processNames.some(n => procName.includes(n.toLowerCase()))) {
+            if (processNames.some((n) => procName.includes(n.toLowerCase()))) {
               return { running: true, pid }
             }
           } else {
             return { running: true, pid }
           }
-        } catch { /* tasklist failed, skip */ }
+        } catch {
+          /* tasklist failed, skip */
+        }
       }
-    } catch { /* netstat failed, skip */ }
+    } catch {
+      /* netstat failed, skip */
+    }
   }
   return { running: false }
 }
 
 // ─── Layer 3: Config directory activity ──────────────────────────────────────
 
-export function checkConfigActivity(
-  configPath: string
-): 'active' | 'inactive' | 'unknown' {
+export function checkConfigActivity(configPath: string): 'active' | 'inactive' | 'unknown' {
   try {
     const fullPath = configPath.startsWith('~')
       ? path.join(os.homedir(), configPath.slice(1))
@@ -119,7 +128,7 @@ export async function detectAgentRunning(
   healthCheck: { type: string; url?: string; timeout?: number },
   ports: number[],
   processNames: string[],
-  configPath?: string
+  configPath?: string,
 ): Promise<boolean> {
   if (await checkHealthEndpoint(healthCheck)) return true
   if (detectByProcessName(agentId)) return true

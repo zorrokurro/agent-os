@@ -110,7 +110,7 @@ export async function pullModel(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     return new Promise((resolve) => {
-      const proc = spawn('ollama', ['pull', model], { shell: true })
+      const proc = spawn('ollama', ['pull', model], { shell: false })
 
       let lastPercent = 0
       proc.stdout.on('data', (data: Buffer) => {
@@ -163,7 +163,7 @@ export async function startOllamaServe(): Promise<void> {
   spawn('ollama', ['serve'], {
     detached: true,
     stdio: 'ignore',
-    shell: true,
+    shell: false,
   }).unref()
 }
 

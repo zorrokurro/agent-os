@@ -126,7 +126,7 @@ class StabilityService {
         const proc = spawn('ollama', ['serve'], {
           detached: true,
           stdio: 'ignore',
-          shell: true,
+          shell: false,
         })
         proc.unref()
         this.processes.set(serviceName, proc)

@@ -234,14 +234,14 @@ class AgentManager {
       try {
         let proc: ChildProcess
 
-        // OpenHuman 是桌面 App，用 shell: true 啟動
+        // OpenHuman 是桌面 App
         if (id === 'openhuman') {
           proc = spawn(exePath, [], {
             cwd: dataDir,
             env: { ...process.env },
             stdio: 'ignore',
             detached: true,
-            shell: true,
+            shell: false,
           })
         } else {
           proc = spawn(exePath, [], {

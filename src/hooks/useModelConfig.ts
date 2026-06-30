@@ -33,7 +33,7 @@ export function useModelConfig() {
       const [saved, ollamaModels, apiModels] = await Promise.all([
         window.electronAPI.getModelConfig(),
         window.electronAPI.listModels(),
-        window.electronAPI.listApiModels().catch(() => []),
+        window.electronAPI.listApiModels().catch((): string[] => []),
       ])
       setModels([...ollamaModels, ...apiModels])
       setConfigState({

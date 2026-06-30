@@ -106,7 +106,7 @@ export function startHermes(
       cwd: HERMES_DIR,
       env,
       stdio: ['pipe', 'pipe', 'pipe'],
-      shell: true,
+      shell: false,
     })
 
     const memoryPrompt = `AgentOS Memory Layer is at: ${HERMES_MEMORY}\n\nBefore each session, read user_profile.md and brand_voice.md from this directory.`
