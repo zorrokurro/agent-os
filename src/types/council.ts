@@ -25,12 +25,6 @@ export interface Deliberation {
   completedAt: string | null;
 }
 
-export interface CouncilState {
-  deliberations: Deliberation[];
-  activeDeliberation: string | null;
-  isRunning: boolean;
-}
-
 // Default council lineup
 export const DEFAULT_COUNCILLORS: Omit<Councillor, 'status' | 'response'>[] = [
   { id: 'builder', name: 'Builder', vendor: 'AgentOS', model: 'Builder Agent', role: 'councillor' },
@@ -60,28 +54,4 @@ export const MODE_DESCRIPTIONS: Record<Deliberation['mode'], string> = {
 // Generate unique ID
 export function generateId(): string {
   return `council_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-}
-
-// Calculate Borda count from rankings
-export function calculateBordaScores(
-  rankings: Record<string, string[]> // councillor id -> ordered list of response ids (best first)
-): Record<string, number> {
-  const scores: Record<string, number> = {};
-  const allIds = new Set<string>();
-
-  for (const [, order] of Object.entries(rankings)) {
-    for (const id of order) allIds.add(id);
-  }
-
-  for (const id of Array.from(allIds)) scores[id] = 0;
-
-  for (const [, order] of Object.entries(rankings)) {
-    const n = order.length;
-    for (let i = 0; i < n; i++) {
-      const responseId = order[i];
-      scores[responseId] = (scores[responseId] || 0) + (n - i);
-    }
-  }
-
-  return scores;
 }

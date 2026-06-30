@@ -201,3 +201,31 @@ export interface ResearchReport {
     reportPath: string
   }
 }
+
+// ─── MCP ─────────────────────────────────────────────────────────────────────
+
+export interface McpServerConfig {
+  id: string
+  name: string
+  transport: 'stdio' | 'sse'
+  command?: string
+  args?: string[]
+  env?: Record<string, string>
+  url?: string
+  enabled: boolean
+}
+
+export interface McpToolInfo {
+  serverId: string
+  name: string
+  description: string
+  inputSchema: Record<string, unknown>
+}
+
+export interface McpServerStatus {
+  id: string
+  name: string
+  connected: boolean
+  toolCount: number
+  error?: string
+}

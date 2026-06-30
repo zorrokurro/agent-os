@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { McpServerConfig, McpToolInfo, McpServerStatus } from '../types/electron'
+import type { McpServerConfig, McpToolInfo, McpServerStatus } from '../types'
 
 type Tab = 'servers' | 'tools'
 

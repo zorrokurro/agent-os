@@ -79,7 +79,7 @@ const store = new Store<{
     apiModel: 'openai/gpt-4o-mini',
     autoUpdate: true,
     language: 'zh-TW',
-    memoryPath: 'C:\\AgentOS\\Memory',
+    memoryPath: path.join(os.homedir(), 'AgentOS', 'Memory'),
     discordToken: '',
     discordChannelId: '',
     discordEnabled: false,
@@ -88,30 +88,13 @@ const store = new Store<{
 })
 
 async function createWindow() {
-  // Resolve preload path — works in both dev and packaged (asar) modes
-  // Electron requires preload to be a real file (not inside asar)
   const appPath = app.getAppPath()
-  let preloadPath: string
-  if (app.isPackaged) {
-    // In packaged mode, main.js is at resources/app.asar/dist-electron/main.js
-    // preload.js (unpacked) is at resources/app.asar.unpacked/dist-electron/preload.js
-    preloadPath = path.join(appPath, '..', 'app.asar.unpacked', 'dist-electron', 'preload.js')
-    // Fallback if asarUnpacked doesn't exist (non-asar build)
-    if (!fs.existsSync(preloadPath)) {
-      preloadPath = path.join(appPath, 'dist-electron', 'preload.js')
-    }
-    // Fallback: some electron-builder configs put main.js at resources/app/dist-electron/
-    if (!fs.existsSync(preloadPath)) {
-      preloadPath = path.join(appPath, 'preload.js')
-    }
-  } else {
-    // In dev mode, preload.js is at dist-electron/preload.js next to main.js
-    preloadPath = path.join(appPath, 'dist-electron', 'preload.js')
-  }
+  const preloadPath = app.isPackaged
+    ? path.join(appPath, 'dist-electron', 'preload.js')
+    : path.join(appPath, 'dist-electron', 'preload.js')
   const rendererPath = path.join(appPath, 'dist-renderer', 'index.html')
   const iconPath = path.join(appPath, 'public', 'icon.ico')
   console.log('[Main] preload:', preloadPath)
-  console.log('[Main] renderer:', rendererPath)
 
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -178,8 +161,6 @@ async function registerIPC() {
         isDedicated: false,
       })
     }
-    console.log('[Hardware] allGpus:', JSON.stringify(hw.allGpus))
-    console.log('[Hardware] gpu:', hw.gpu, 'vramGB:', hw.vramGB)
     return hw
   })
 
@@ -330,7 +311,7 @@ async function registerIPC() {
     try {
       const logFile = path.join(os.homedir(), 'AgentOS', 'agents-data', id, 'agent.log')
       if (!fs.existsSync(logFile)) return { logs: [] }
-      const content = fs.readFileSync(logFile, 'utf-8')
+      const content = await fs.promises.readFile(logFile, 'utf-8')
       const lines = content.split('\n').filter(Boolean)
       return { logs: lines.slice(-500) }
     } catch {
@@ -344,12 +325,12 @@ async function registerIPC() {
       const agentDir = path.join(os.homedir(), 'AgentOS', 'agents', id)
       const mfPath = path.join(agentDir, 'manifest.json')
       if (!fs.existsSync(mfPath)) return { description: '', readme: '' }
-      const manifest = JSON.parse(fs.readFileSync(mfPath, 'utf-8'))
+      const manifest = JSON.parse(await fs.promises.readFile(mfPath, 'utf-8'))
       const description = manifest.description || ''
       let readme = ''
       const readmePath = path.join(agentDir, 'README.md')
       if (fs.existsSync(readmePath)) {
-        readme = fs.readFileSync(readmePath, 'utf-8')
+        readme = await fs.promises.readFile(readmePath, 'utf-8')
       }
       return { description, readme }
     } catch {
@@ -647,14 +628,14 @@ async function registerIPC() {
   })
 
   // === Agent Catalog Registry ===
-  ipcMain.handle('get-agent-catalog', () => {
+  ipcMain.handle('get-agent-catalog', async () => {
     try {
       // packaged 時 registry 在 resources 目錄，開發時在 repo root
       const regPath = isDev
         ? path.join(__dirname, '..', 'agents-registry.json')
         : path.join(process.resourcesPath, 'agents-registry.json')
       if (!fs.existsSync(regPath)) return { agents: [] }
-      const raw = fs.readFileSync(regPath, 'utf-8')
+      const raw = await fs.promises.readFile(regPath, 'utf-8')
       return JSON.parse(raw)
     } catch (e) {
       console.error('[Catalog] 讀取失敗:', e)
@@ -669,7 +650,6 @@ async function registerIPC() {
   umpHubInstance = umpHub
   const { setHub: setNotebookHub } = await import('./services/notebook')
   setNotebookHub(umpHub)
-  console.log('[Notebook] Service initialized')
   const umpExchange = new MemoryExchange()
   const umpBridge = new AgentOSBridge(agentosRoot, umpHub, umpExchange)
   const umpDiscovery = new AgentDiscovery(agentosRoot)
@@ -788,9 +768,7 @@ async function registerIPC() {
   })
 
   ipcMain.handle('notebook:create', (_, name: string, description?: string, icon?: string, color?: string) => {
-    console.log(`[Notebook] Creating notebook: ${name}`)
     const result = notebookService.createNotebook(name, description, icon, color)
-    console.log('[Notebook] Created:', result)
     return result
   })
 
@@ -1149,7 +1127,7 @@ app.whenReady().then(async () => {
           enabled: store.get('discordEnabled'),
         }
         const result = await discordService.startBot(config, umpHubInstance!)
-        console.log('[Discord] Auto-start:', result.message)
+        if (!result.success) console.error('[Discord] Auto-start:', result.message)
       } catch (e) {
         console.error('[Discord] Auto-start failed:', e)
       }

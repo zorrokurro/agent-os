@@ -18,7 +18,14 @@ export default defineConfig({
         build: {
           outDir: 'dist-electron',
           rollupOptions: {
-            external: ['discord.js', '@discordjs/ws', '@discordjs/rest', '@discordjs/prism', 'zlib-sync', 'node:zlib', 'sql.js'],
+            external: [
+              'discord.js', '@discordjs/ws', '@discordjs/rest', '@discordjs/prism',
+              'zlib-sync', 'node:zlib', 'sql.js',
+              'electron-store', 'electron-updater',
+              'systeminformation', 'chokidar',
+              '@modelcontextprotocol/sdk',
+              'pdf-parse', 'node-fetch',
+            ],
             output: {
               format: 'cjs',
               entryFileNames: '[name].js',

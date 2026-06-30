@@ -3,8 +3,11 @@ import path from 'path'
 import fs from 'fs'
 import os from 'os'
 import http from 'http'
-import { statSync } from 'fs'
 import type { SystemAgent } from '../../shared/types'
+import {
+  AGENT_PROCESS_NAMES,
+  detectAgentRunning,
+} from './agent-detection'
 
 export type { SystemAgent }
 
@@ -64,13 +67,6 @@ const KNOWN_AI_NPM = [
 
 const SKIP_DIRS = ['node_modules', '.git', '__pycache__', '.venv', 'venv', 'dist', 'build']
 
-// 獨立 Agent 進程名稱定義（精確比對用）
-const AGENT_PROCESS_NAMES: Record<string, string[]> = {
-  hermes: ['hermes-agent.exe', 'hermes.exe', 'hermes'],
-  openhuman: ['OpenHuman.exe', 'openhuman.exe'],
-  opencode: ['OpenCode.exe', 'opencode.exe'],
-}
-
 export class SystemDetector {
   private agentsDir: string
 
@@ -78,94 +74,8 @@ export class SystemDetector {
     this.agentsDir = path.join(agentosRoot, 'agents')
   }
 
-  // ---- 三層偵測方法 ----
+  // ---- 三層偵測方法 (delegated to agent-detection.ts) ----
 
-  // 第一層：HTTP healthcheck（最準確）
-  private async checkHealthEndpoint(healthCheck: { type: string; url?: string; timeout?: number }): Promise<boolean> {
-    if (healthCheck.type === 'none' || !healthCheck.url) return false
-    if (healthCheck.type === 'http') {
-      try {
-        const res = await fetch(healthCheck.url, {
-          signal: AbortSignal.timeout(healthCheck.timeout ?? 2000)
-        })
-        return res.ok
-      } catch { return false }
-    }
-    return false
-  }
-
-  // 第二層-A：進程名稱精確比對（OpenCode/OpenHuman 用這層就夠）
-  private detectByProcessName(agentId: string): boolean {
-    const targets = AGENT_PROCESS_NAMES[agentId]
-    if (!targets || targets.length === 0) return false
-
-    try {
-      const result = execSync(
-        'tasklist /FO CSV /NH',
-        { encoding: 'utf-8', timeout: 3000, windowsHide: true }
-      )
-      // 取得所有進程名稱（小寫）
-      const running = result.split('\n').map(line =>
-        line.split(',')[0].replace(/"/g, '').trim().toLowerCase()
-      )
-
-      // 比對：目標名稱是否在進程列表中
-      return targets.some(t => running.includes(t.toLowerCase()))
-    } catch {
-      return false
-    }
-  }
-
-  // 第二層-B：Port 占用 + PID 比對進程名稱
-  private checkPortAndProcess(ports: number[], processNames: string[]): { running: boolean; pid?: number } {
-    for (const port of ports) {
-      try {
-        const result = execSync(
-          `netstat -ano | findstr ":${port} "`,
-          { encoding: 'utf-8', timeout: 3000, windowsHide: true }
-        )
-        const lines = result.trim().split('\n').filter(Boolean)
-        for (const line of lines) {
-          if (!line.includes('LISTENING')) continue
-          const parts = line.trim().split(/\s+/)
-          const pid = parseInt(parts[parts.length - 1] || '0')
-          if (!pid) continue
-
-          // 用 PID 查進程名稱
-          try {
-            const nameResult = execSync(
-              `tasklist /FI "PID eq ${pid}" /FO CSV /NH`,
-              { encoding: 'utf-8', timeout: 3000, windowsHide: true }
-            )
-            const procName = nameResult.split(',')[0].replace(/"/g, '').toLowerCase()
-
-            // 比對進程名稱
-            if (processNames.some(n => procName.includes(n.toLowerCase()))) {
-              return { running: true, pid }
-            }
-          } catch { /* tasklist 失敗，跳過 */ }
-        }
-      } catch { /* netstat 失敗，跳過 */ }
-    }
-    return { running: false }
-  }
-
-  // 第三層：Config 目錄最後修改時間
-  private checkConfigActivity(configPath: string): 'active' | 'inactive' | 'unknown' {
-    try {
-      const fullPath = configPath.startsWith('~')
-        ? path.join(os.homedir(), configPath.slice(1))
-        : configPath
-      const stat = statSync(fullPath)
-      const minutesAgo = (Date.now() - stat.mtimeMs) / 1000 / 60
-      // 5分鐘內有修改過 = 活躍
-      return minutesAgo < 5 ? 'active' : 'inactive'
-    } catch {
-      return 'unknown'
-    }
-  }
-
-  // 整合三層偵測
   private async detectStatus(
     agentId: string,
     healthCheck: { type: string; url?: string; timeout?: number },
@@ -173,25 +83,7 @@ export class SystemDetector {
     processNames: string[],
     configPath?: string
   ): Promise<boolean> {
-    // 第一層：HTTP healthcheck（Hermes 用）
-    const healthy = await this.checkHealthEndpoint(healthCheck)
-    if (healthy) return true
-
-    // 第二層-A：進程名稱精確比對（OpenCode/OpenHuman 用這層就夠）
-    const procMatch = this.detectByProcessName(agentId)
-    if (procMatch) return true
-
-    // 第二層-B：Port + PID 比對（輔助驗證）
-    const portCheck = this.checkPortAndProcess(ports, processNames)
-    if (portCheck.running) return true
-
-    // 第三層：Config 活躍度
-    if (configPath) {
-      const activity = this.checkConfigActivity(configPath)
-      if (activity === 'active') return true
-    }
-
-    return false
+    return detectAgentRunning(agentId, healthCheck, ports, processNames, configPath)
   }
 
   async detectAll(): Promise<SystemAgent[]> {

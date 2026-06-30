@@ -287,6 +287,14 @@ function ControlsTab({ agent, agentStatus, onToggleAgent, onTabChange }: { agent
   const [loading, setLoading] = useState(false)
   const [models, setModels] = useState<string[]>([])
   const [selectedModel, setSelectedModel] = useState('')
+  const streamingCleanupRef = useRef<(() => void)[]>([])
+
+  useEffect(() => {
+    return () => {
+      streamingCleanupRef.current.forEach(fn => fn())
+      streamingCleanupRef.current = []
+    }
+  }, [])
 
   useEffect(() => {
     Promise.all([
@@ -318,6 +326,11 @@ function ControlsTab({ agent, agentStatus, onToggleAgent, onTabChange }: { agent
       setMessages(prev => [...prev, { role: 'agent', content: '' }])
       let fullReply = ''
 
+      const cleanupAll = () => {
+        streamingCleanupRef.current.forEach(fn => fn())
+        streamingCleanupRef.current = []
+      }
+
       const removeToken = window.electronAPI.onChatToken((token) => {
         fullReply += token
         setMessages(prev => {
@@ -328,9 +341,7 @@ function ControlsTab({ agent, agentStatus, onToggleAgent, onTabChange }: { agent
       })
 
       const removeDone = window.electronAPI.onChatDone(async () => {
-        removeToken()
-        removeDone()
-        removeError()
+        cleanupAll()
         setLoading(false)
 
         // Save conversation to memory
@@ -341,9 +352,7 @@ function ControlsTab({ agent, agentStatus, onToggleAgent, onTabChange }: { agent
       })
 
       const removeError = window.electronAPI.onChatError((error) => {
-        removeToken()
-        removeDone()
-        removeError()
+        cleanupAll()
         setMessages(prev => {
           const updated = [...prev]
           updated[updated.length - 1] = { role: 'agent', content: `❌ 錯誤：${error}\n\n請確認 Ollama 已啟動且模型已下載。` }
@@ -351,6 +360,8 @@ function ControlsTab({ agent, agentStatus, onToggleAgent, onTabChange }: { agent
         })
         setLoading(false)
       })
+
+      streamingCleanupRef.current = [removeToken, removeDone, removeError]
 
       await window.electronAPI.chatStream(model, chatMessages)
     } catch (e) {

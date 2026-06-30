@@ -76,7 +76,6 @@ export function getNotebook(id: string): Notebook | null {
 export function createNotebook(name: string, description = '', icon = '📓', color = '#a078ff'): Notebook {
   const hub = ensureHub()
   const id = generateId('nb')
-  console.log(`[NotebookService] createNotebook: id=${id}, name=${name}`)
   const memory = createMemory({
     id,
     content: description || name,
@@ -87,7 +86,6 @@ export function createNotebook(name: string, description = '', icon = '📓', co
     importance: 0.5,
   })
   hub.addMemory(memory)
-  console.log('[NotebookService] createNotebook: memory saved')
   return memoryToNotebook(memory)
 }
 

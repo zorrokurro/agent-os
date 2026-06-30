@@ -3,7 +3,13 @@ import path from 'path'
 import os from 'os'
 import fs from 'fs'
 import http from 'http'
-import { statSync, existsSync } from 'fs'
+import { existsSync } from 'fs'
+import {
+  checkHealthEndpoint,
+  detectByProcessName,
+  checkPortAndProcess,
+  checkConfigActivity,
+} from './agent-detection'
 
 // ============================================================
 // 工具函式
@@ -118,110 +124,7 @@ class AgentManager {
     this.loadAgents()
   }
 
-  // ---- 三層偵測 ----
-
-  // 獨立 Agent 進程名稱定義（精確比對用）
-  private static readonly AGENT_PROCESS_NAMES: Record<string, string[]> = {
-    hermes: ['hermes-agent.exe', 'hermes.exe', 'hermes'],
-    openhuman: ['OpenHuman.exe', 'openhuman.exe'],
-    opencode: ['OpenCode.exe', 'opencode.exe'],
-  }
-
-  // 第一層：HTTP healthcheck（最準確）
-  private async checkHealthEndpoint(manifest: AgentManifest): Promise<boolean> {
-    if (!manifest.healthCheck || manifest.healthCheck.type === 'none') return false
-    if (manifest.healthCheck.type === 'http' && manifest.healthCheck.url) {
-      try {
-        const res = await fetch(manifest.healthCheck.url, {
-          signal: AbortSignal.timeout(manifest.healthCheck.timeout ?? 2000)
-        })
-        return res.ok
-      } catch { return false }
-    }
-    return false
-  }
-
-  // 第二層-A：進程名稱精確比對（OpenCode/OpenHuman 用這層就夠）
-  private detectByProcessName(agentId: string): boolean {
-    const targets = AgentManager.AGENT_PROCESS_NAMES[agentId]
-    if (!targets || targets.length === 0) return false
-
-    try {
-      const result = execSync(
-        'tasklist /FO CSV /NH',
-        { encoding: 'utf-8', timeout: 3000, windowsHide: true }
-      )
-      // 取得所有進程名稱（小寫）
-      const running = result.split('\n').map(line =>
-        line.split(',')[0].replace(/"/g, '').trim().toLowerCase()
-      )
-
-      // 比對：目標名稱是否在進程列表中
-      return targets.some(t => running.includes(t.toLowerCase()))
-    } catch {
-      return false
-    }
-  }
-
-  // 第二層-B：Port 占用 + PID 比對進程名稱
-  private checkPortAndProcess(manifest: AgentManifest): { running: boolean; pid?: number } {
-    const ports = manifest.ports ?? (manifest.runtime.port > 0 ? [manifest.runtime.port] : [])
-    const processNames = manifest.processNames ?? []
-
-    for (const port of ports) {
-      try {
-        const result = execSync(
-          `netstat -ano | findstr ":${port} "`,
-          { encoding: 'utf-8', timeout: 3000, windowsHide: true }
-        )
-        const lines = result.trim().split('\n').filter(Boolean)
-        for (const line of lines) {
-          if (!line.includes('LISTENING')) continue
-          const parts = line.trim().split(/\s+/)
-          const pid = parseInt(parts[parts.length - 1] || '0')
-          if (!pid) continue
-
-          // 用 PID 查進程名稱
-          try {
-            const nameResult = execSync(
-              `tasklist /FI "PID eq ${pid}" /FO CSV /NH`,
-              { encoding: 'utf-8', timeout: 3000, windowsHide: true }
-            )
-            const procName = nameResult.split(',')[0].replace(/"/g, '').toLowerCase()
-
-            // 如果有定義 processNames，比對是否相符
-            if (processNames.length > 0) {
-              if (processNames.some(n => procName.includes(n.toLowerCase()))) {
-                return { running: true, pid }
-              }
-            } else {
-              // 沒定義 processNames，只要 port 有 LISTENING 就算運行
-              return { running: true, pid }
-            }
-          } catch { /* tasklist 失敗，跳過 */ }
-        }
-      } catch { /* netstat 失敗，跳過 */ }
-    }
-    return { running: false }
-  }
-
-  // 第三層：Config 目錄最後修改時間
-  private checkConfigActivity(manifest: AgentManifest): 'active' | 'inactive' | 'unknown' {
-    const configPath = manifest.configPath
-    if (!configPath) return 'unknown'
-
-    try {
-      const fullPath = configPath.startsWith('~')
-        ? path.join(os.homedir(), configPath.slice(1))
-        : configPath
-      const stat = statSync(fullPath)
-      const minutesAgo = (Date.now() - stat.mtimeMs) / 1000 / 60
-      // 5分鐘內有修改過 = 活躍
-      return minutesAgo < 5 ? 'active' : 'inactive'
-    } catch {
-      return 'unknown'
-    }
-  }
+  // ---- 三層偵測 (delegated to agent-detection.ts) ----
 
   // 整合三層偵測
   async detectAgentStatus(id: string): Promise<'running' | 'stopped' | 'unknown'> {
@@ -230,28 +133,23 @@ class AgentManager {
 
     // 外部 Agent 才需要三層偵測，一般 Agent 由進程管理
     if (manifest.runtime.type !== 'external') {
-      // 一般 Agent：檢查是否有 process 在管理
       const proc = this.processes.get(id)
       if (proc && !proc.killed) return 'running'
       return 'stopped'
     }
 
-    // 第一層：HTTP healthcheck（Hermes 用）
-    const healthy = await this.checkHealthEndpoint(manifest)
-    if (healthy) return 'running'
+    const healthCheck = manifest.healthCheck ?? { type: 'none' }
+    const ports = manifest.ports ?? (manifest.runtime.port > 0 ? [manifest.runtime.port] : [])
+    const processNames = manifest.processNames ?? []
 
-    // 第二層-A：進程名稱精確比對（OpenCode/OpenHuman 用這層就夠）
-    const procMatch = this.detectByProcessName(id)
-    if (procMatch) return 'running'
-
-    // 第二層-B：Port + PID 比對（輔助驗證）
-    const portCheck = this.checkPortAndProcess(manifest)
-    if (portCheck.running) return 'running'
-
-    // 第三層：Config 活躍度
-    const activity = this.checkConfigActivity(manifest)
-    if (activity === 'active') return 'running'
-    if (activity === 'inactive') return 'stopped'
+    if (await checkHealthEndpoint(healthCheck)) return 'running'
+    if (detectByProcessName(id)) return 'running'
+    if (checkPortAndProcess(ports, processNames).running) return 'running'
+    if (manifest.configPath) {
+      const activity = checkConfigActivity(manifest.configPath)
+      if (activity === 'active') return 'running'
+      if (activity === 'inactive') return 'stopped'
+    }
 
     return 'unknown'
   }

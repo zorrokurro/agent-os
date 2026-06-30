@@ -22,7 +22,6 @@ const CurrentTimeButton: React.FC<CurrentTimeButtonProps> = ({
 
   const handleClick = () => {
     if (onClick) onClick(currentTime);
-    else console.log('Current Time:', currentTime);
   };
 
   return (

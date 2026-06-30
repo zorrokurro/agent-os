@@ -158,14 +158,11 @@ export default function NotebookPage() {
 
   const createNotebook = async () => {
     if (!newName.trim()) return
-    console.log(`嘗試建立筆記本：${newName}`)
     try {
       const result = await window.electronAPI.notebookCreate(newName, newDesc, selectedIcon, selectedColor)
       if (result && (result as any).error) {
-        console.error('建立筆記本失敗：', (result as any).error)
         return
       }
-      console.log('建立筆記本成功：', result)
       setShowNewNotebook(false)
       setNewName(''); setNewDesc('')
       loadNotebooks()

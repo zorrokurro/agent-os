@@ -16,7 +16,7 @@ export default {
         'surface-container': '#1c2b3c',
         'surface-container-low': '#0d1c2d',
         'surface-container-high': '#273647',
-        'surface-container-highest': '#273647',
+        'surface-container-highest': '#344355',
         'surface-bright': '#2c3a4c',
         'surface-dim': '#051424',
         'surface-tint': '#d0bcff',
