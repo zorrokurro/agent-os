@@ -319,7 +319,7 @@ export class SystemDetector {
 
       // Try to read version from config files
       let version = ''
-      let configInfo: Record<string, unknown> = {}
+      const configInfo: Record<string, unknown> = {}
 
       for (const configDir of foundConfigDirs) {
         try {

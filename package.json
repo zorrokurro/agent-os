@@ -1,6 +1,6 @@
 {
   "name": "agentos",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "AgentOS - AI Agent development platform",
   "author": "Agent Harness Team",
   "main": "dist-electron/main.js",

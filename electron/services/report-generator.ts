@@ -157,7 +157,7 @@ function buildSections(
   refs: Reference[]
 ): ReportSection[] {
   const sections: ReportSection[] = []
-  let refIdx = 0
+  const refIdx = 0
 
   function getRefIndices(results: SearchResult[]): string[] {
     return results.map(r => {
@@ -390,7 +390,7 @@ function renderHtml(report: ResearchReport): string {
   // 簡化版 HTML 渲染
   const md = renderMarkdown(report)
   // 基本 Markdown to HTML 轉換
-  let html = md
+  const html = md
     .replace(/^# (.*$)/gm, '<h1>$1</h1>')
     .replace(/^## (.*$)/gm, '<h2>$1</h2>')
     .replace(/^### (.*$)/gm, '<h3>$1</h3>')

@@ -139,13 +139,37 @@ Requires: Node.js 18+, npm 9+, Python (some agents depend on it), Git
 
 ## Tech Stack
 
-- **Frontend**: React 18 + TypeScript + Vite + Tailwind
+- **Frontend**: React 18 + TypeScript (strict) + Vite + Tailwind
 - **Desktop**: Electron
 - **Memory**: SQLite (sql.js, in-process, no external DB)
 - **Local inference**: Ollama
 - **Cloud APIs**: OpenRouter / Anthropic / OpenAI
 - **MCP SDK**: @modelcontextprotocol/sdk 1.29.0
 - **Packaging**: electron-builder (NSIS installer)
+- **Code Quality**: ESLint 9 (flat config) + Prettier
+
+---
+
+## Development
+
+```bash
+npm run dev          # Start dev server
+npm run typecheck    # TypeScript strict check
+npm run lint         # ESLint
+npm run format       # Prettier format
+npm run build        # Build app
+```
+
+---
+
+## Security
+
+AgentOS enforces strict security:
+
+- **IPC validation**: All 80+ IPC handlers validated with Zod schemas
+- **Shell injection prevention**: `spawn()` with `shell:false` across all services
+- **No secrets in repo**: `.env` files gitignored; `.env.example` provided
+- **Strict TypeScript**: `strict: true` with `noImplicitAny` and `strictNullChecks`
 
 ---
 

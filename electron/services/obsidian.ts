@@ -11,7 +11,7 @@ let watcher: fs.FSWatcher | null = null
 
 function getVaultPath(): string {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+     
     const Store = require('electron-store')
     const store = new Store()
     return store.get('obsidianVault') || ''
@@ -49,7 +49,7 @@ function parseFrontmatter(content: string): { meta: Frontmatter; body: string } 
     const [, key, val] = kv
     if (key === 'tags') {
       // Parse [tag1, tag2] or tag1, tag2
-      const tagStr = val.replace(/[\[\]]/g, '').trim()
+      const tagStr = val.replace(/[\[\]]/g, '').trim() // eslint-disable-line no-useless-escape
       meta.tags = tagStr ? tagStr.split(/,\s*/).map(t => t.trim()).filter(Boolean) : []
     } else if (key === 'created') {
       meta.created = val.trim()
@@ -208,7 +208,7 @@ export function startWatching(): { success: boolean; message: string } {
   ensureDir(watchDir)
 
   watcher = chokidar.watch(watchDir, {
-    ignored: /(^|[\/\\])\./,
+    ignored: /(^|[\/\\])\./, // eslint-disable-line no-useless-escape
     persistent: true,
     ignoreInitial: true,
     awaitWriteFinish: { stabilityThreshold: 1000, pollInterval: 200 },
