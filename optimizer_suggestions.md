@@ -31,10 +31,9 @@
 ### ~~M3: IPC 無輸入驗證~~ ✅ 已修正
 - **修正:** 新增 `electron/ipc/validate.ts`，使用 Zod 4 為所有 IPC handler 建立 schema 驗證（agent ID、file path、chat message、settings、MCP config、GitHub URL 等）
 
-### M4: 元件過大
-- **位置:** NotebookPage(804), LibraryPage(564), InstallPage(539), CouncilPage(631)
-- **問題:** 單一元件超過 500 行，難以維護
-- **建議:** 拆分為子元件
+### ~~M4: 元件過大~~ ✅ 已修正（進行中）
+- **修正:** 建立 `src/features/notebook/` feature-first 架構，NotebookPage 從 801 行拆分為 12 個檔案（hooks/services/components），index.tsx 154 行
+- **下一步:** v0.1.7 LibraryPage、v0.1.8 CouncilPage、v0.1.9 App.tsx feature-first 整理
 
 ### M5: 大量 polling
 - **位置:** LibraryPage(15s), LogsTab(5s), AgentPanel(5s)
@@ -113,7 +112,7 @@
 
 | 項目 | 優先級 | 說明 |
 |------|--------|------|
-| M4 | 中 | 元件拆分（大工程） |
+| M4 | 中 | ~~NotebookPage done~~ → LibraryPage (v0.1.7), CouncilPage (v0.1.8) |
 | M5 | 中 | polling → WebSocket（架構變更） |
 | L2 | 低 | i18n 統一 |
 | L3 | 低 | CSS modules |
