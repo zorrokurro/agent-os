@@ -12,6 +12,10 @@ import type {
   MemoryStats,
   ProgressData,
   CatalogAgent,
+  SystemAgent,
+  Notebook,
+  Note,
+  Source,
 } from './index'
 
 declare global {
@@ -174,50 +178,6 @@ export interface OrchestratorTask {
   status: 'pending' | 'running' | 'done' | 'failed'
   result?: string
   error?: string
-}
-
-export interface Notebook {
-  id: string
-  name: string
-  description: string
-  icon: string
-  color: string
-  noteCount: number
-  createdAt: string
-  updatedAt: string
-}
-
-export interface Note {
-  id: string
-  title: string
-  content: string
-  notebookId: string
-  tags: string[]
-  pinned: boolean
-  createdAt: string
-  updatedAt: string
-}
-
-export interface Source {
-  id: string
-  title: string
-  type: 'pdf' | 'url' | 'text'
-  preview: string
-  content: string
-  tags: string[]
-  createdAt: string
-  metadata: Record<string, unknown>
-}
-
-export interface SystemAgent {
-  id: string
-  name: string
-  source: 'ollama' | 'pip' | 'npm' | 'path' | 'docker' | 'directory' | 'standalone'
-  version: string
-  description: string
-  installed: boolean
-  running: boolean
-  details: Record<string, unknown>
 }
 
 export interface McpServerConfig {

@@ -5,6 +5,8 @@ dist-electron/
 data/
 .env
 .env.local
+.env.*.local
+electron/.env
 *.log
 .DS_Store
 Thumbs.db
@@ -12,6 +14,7 @@ Thumbs.db
 *.exe
 release/
 .aider*
+*.tsbuildinfo
 
 # Cloned agents (installed via GitHub installer)
 agents/

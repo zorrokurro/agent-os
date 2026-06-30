@@ -593,3 +593,12 @@ export class MemoryHub {
     }
   }
 }
+
+let _memoryHubInstance: MemoryHub | null = null
+
+export function getMemoryHub(): MemoryHub {
+  if (!_memoryHubInstance) {
+    _memoryHubInstance = new MemoryHub()
+  }
+  return _memoryHubInstance
+}

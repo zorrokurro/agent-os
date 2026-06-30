@@ -1,21 +1,16 @@
 import { useState, useEffect } from 'react'
+import type { AgentInfo } from '../../types'
 
-interface Agent {
+interface PanelAgent {
   id: string
   name: string
   role: string
   color: string
-  status: 'active' | 'running' | 'idle'
+  status: 'active' | 'running' | 'idle' | 'stopped'
   load: number
 }
 
-const AGENTS: Agent[] = [
-  { id: 'hermes', name: 'Hermes', role: 'Supervisor · 調度', color: 'purple', status: 'active', load: 70 },
-  { id: 'opencode', name: 'OpenCode', role: '程式執行', color: 'teal', status: 'running', load: 40 },
-  { id: 'openhuman', name: 'OpenHuman', role: '人類介面', color: 'blue', status: 'idle', load: 0 },
-  { id: 'builder', name: 'Builder', role: '架構設計', color: 'coral', status: 'idle', load: 0 },
-  { id: 'secretary', name: 'Secretary', role: '記錄摘要', color: 'gray', status: 'idle', load: 0 },
-]
+const COLOR_POOL = ['purple', 'teal', 'blue', 'coral', 'gray']
 
 const COLOR_MAP: Record<string, { bg: string; fg: string }> = {
   purple: { bg: '#EEEDFE', fg: '#534AB7' },
@@ -29,6 +24,19 @@ const STATUS_COLOR: Record<string, string> = {
   running: '#1D9E75',
   active: '#7F77DD',
   idle: '#B4B2A9',
+  stopped: '#B4B2A9',
+}
+
+const ROLE_MAP: Record<string, string> = {
+  hermes: 'Supervisor · 調度',
+  opencode: '程式執行',
+  openhuman: '人類介面',
+  headroom: 'LLM Proxy',
+}
+
+function mapStatus(s: AgentInfo['status']): PanelAgent['status'] {
+  if (s === 'running') return 'running'
+  return 'idle'
 }
 
 interface Metrics {
@@ -53,12 +61,32 @@ function loadMetrics(): Metrics {
 }
 
 export default function AgentPanel() {
+  const [agents, setAgents] = useState<PanelAgent[]>([])
   const [metrics, setMetrics] = useState<Metrics>(loadMetrics)
 
+  const fetchAgents = async () => {
+    try {
+      const result: AgentInfo[] = await window.electronAPI.getAgents()
+      const mapped: PanelAgent[] = result.map((a, i) => ({
+        id: a.id,
+        name: a.name,
+        role: ROLE_MAP[a.id] || a.description?.slice(0, 20) || 'Agent',
+        color: COLOR_POOL[i % COLOR_POOL.length],
+        status: mapStatus(a.status),
+        load: a.status === 'running' ? 40 : 0,
+      }))
+      setAgents(mapped)
+    } catch {
+      setAgents([])
+    }
+  }
+
   useEffect(() => {
+    fetchAgents()
     const interval = setInterval(() => {
+      fetchAgents()
       setMetrics(loadMetrics())
-    }, 3000)
+    }, 5000)
     return () => clearInterval(interval)
   }, [])
 
@@ -71,7 +99,12 @@ export default function AgentPanel() {
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {AGENTS.map(agent => {
+        {agents.length === 0 && (
+          <div style={{ textAlign: 'center', color: '#958ea0', fontSize: 12, padding: '24px 8px' }}>
+            尚無已安裝的 Agent
+          </div>
+        )}
+        {agents.map(agent => {
           const c = COLOR_MAP[agent.color] ?? COLOR_MAP.gray
           return (
             <div key={agent.id} style={{

@@ -84,11 +84,7 @@ export interface InstallOptions {
   selectedGpuIndex: number
 }
 
-export interface ProgressData {
-  step: string
-  percent: number
-  message: string
-}
+export type ProgressData = InstallProgress
 
 export interface InstallProgress {
   step: string

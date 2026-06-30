@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import type { Notebook, Note, Source } from '../types/electron'
+import type { Notebook, Note, Source } from '../types'
 
 const COLORS = ['#a078ff', '#0566d9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899']
 const ICONS = ['📓', '📔', '📕', '📗', '📘', '📙', '🗂️', '💡', '🔬', '🎯', '🚀', '🧠']

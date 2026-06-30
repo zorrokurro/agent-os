@@ -3,6 +3,7 @@ import path from 'path'
 import { execSync, spawn } from 'child_process'
 import fs from 'fs'
 import os from 'os'
+import crypto from 'crypto'
 import { detectHardware } from './services/hardware'
 import { getAgentManager } from './services/agent-manager'
 import { checkOllama, installOllama, pullModel, listModels, startOllamaServe, chat } from './services/ollama'
@@ -58,7 +59,7 @@ const store = new Store<{
   discordEnabled: boolean
   mcpServers: McpServerConfig[]
 }>({
-  encryptionKey: 'agentOS-2026-secure-key',
+  encryptionKey: process.env.AGENTOS_ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex'),
   name: 'settings',
   defaults: {
     installed: false,

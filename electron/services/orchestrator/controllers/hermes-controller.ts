@@ -1,5 +1,6 @@
 import { Task } from '../task-analyzer'
 import { net } from 'electron'
+import { getMemoryHub } from '../../ump/hub'
 
 export interface AgentController {
   execute(task: Task, context?: string): Promise<string>
@@ -7,13 +8,6 @@ export interface AgentController {
 
 const POLL_INTERVAL_MS = 3000
 const MAX_WAIT_MS = 60000
-
-function getHub() {
-  // Dynamic import to avoid circular dependency
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const mod = require('../../ump/hub') as { memoryHub: import('../../ump/hub').MemoryHub }
-  return mod.memoryHub
-}
 
 function httpGet(url: string, timeout: number): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -34,7 +28,7 @@ export class HermesController implements AgentController {
     console.log(`[Hermes] 執行任務：${task.description}`)
     if (context) console.log(`[Hermes] 收到上下文：${context.substring(0, 100)}...`)
 
-    const hub = getHub()
+    const hub = getMemoryHub()
     const title = task.description.length > 100 ? task.description.substring(0, 100) + '...' : task.description
     const content = context ? `${task.description}\n\n---\n\n上下文：\n${context}` : task.description
 
