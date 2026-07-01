@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Councillor, Deliberation } from '../types'
+import type { Deliberation } from '../types'
 
 const api = () => window.electronAPI as any
 

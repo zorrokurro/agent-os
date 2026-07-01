@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Deliberation, Councillor, PageView } from '../types'
 import { DEFAULT_COUNCILLORS, DEFAULT_CHAIRMAN, generateId } from '../types'
 import * as service from '../services/council.service'

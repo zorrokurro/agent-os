@@ -1,13 +1,12 @@
 import { app, BrowserWindow, Tray, Menu, nativeTheme, ipcMain } from 'electron'
 import path from 'path'
-import { execSync, spawn } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import crypto from 'crypto'
 import { validate, schemas } from './ipc/validate'
 import { detectHardware } from './services/hardware'
 import { getAgentManager } from './services/agent-manager'
-import { checkOllama, installOllama, pullModel, listModels, startOllamaServe, chat } from './services/ollama'
+import { checkOllama, installOllama, pullModel, listModels, chat } from './services/ollama'
 import { aiChat, listApiModels } from './services/aiRouter'
 import { runFullInstallation, InstallOptions } from './services/installer'
 import { stabilityService } from './services/stability'
@@ -24,7 +23,6 @@ import * as discordService from './services/discord'
 import * as obsidianService from './services/obsidian'
 import Store from 'electron-store'
 
-declare const __filename: string
 declare const __dirname: string
 
 let mainWindow: BrowserWindow | null = null
