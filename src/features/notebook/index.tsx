@@ -2,27 +2,21 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNotebook } from './hooks/useNotebook'
 import { useNotebookChat } from './hooks/useNotebookChat'
 import { useNotebookSources } from './hooks/useNotebookSources'
-import { parseSettings, syncObsidian } from './services/notebook.service'
+import { syncObsidian } from './services/notebook.service'
 import { NotebookSidebar } from './components/NotebookSidebar'
 import { NoteEditor } from './components/NoteEditor'
 import { ChatMessages } from './components/ChatMessages'
 import { ChatInput } from './components/ChatInput'
 import { ToolsPanel } from './components/ToolsPanel'
+import { useSettings } from '../../contexts/SettingsContext'
 
 export default function NotebookPage() {
   const nb = useNotebook()
-  const [settings, setSettings] = useState({ modelId: '', obsidianVault: '' })
+  const { settings } = useSettings()
   const [autoSync] = useState(() => localStorage.getItem('obsidianAutoSync') === 'true')
 
   const chat = useNotebookChat(settings)
   const src = useNotebookSources()
-
-  useEffect(() => {
-    (async () => {
-      const raw = await window.electronAPI.getSettings()
-      setSettings(parseSettings(raw))
-    })()
-  }, [])
 
   useEffect(() => {
     if (nb.selectedNotebook) src.loadSources(nb.selectedNotebook.id)

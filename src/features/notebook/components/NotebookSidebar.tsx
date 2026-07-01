@@ -26,7 +26,7 @@ interface Props {
   }
 }
 
-export const NotebookSidebar = React.memo(function NotebookSidebar({   notebooks, selectedNotebook, sources, onSelectNotebook, onCreateNotebook, sourceProps }: Props) {
+export const NotebookSidebar = React.memo(function NotebookSidebar({ notebooks, selectedNotebook, sources, onSelectNotebook, onCreateNotebook, sourceProps }: Props) {
   const [showNew, setShowNew] = useState(false)
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
@@ -41,61 +41,53 @@ export const NotebookSidebar = React.memo(function NotebookSidebar({   notebooks
   }
 
   return (
-    <div style={{
-      background: 'var(--color-background-primary, rgba(18, 33, 49, 0.9))',
-      borderRight: '0.5px solid rgba(255,255,255,0.1)',
-      display: 'flex', flexDirection: 'column',
-    }}>
-      <div style={{ padding: '12px 12px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontWeight: 600, color: 'var(--color-text-secondary, #958ea0)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notebooks</span>
+    <div className="flex flex-col h-full" style={{ background: 'var(--color-background-primary, rgba(18, 33, 49, 0.9))' }}>
+      <div className="flex items-center justify-between px-3 pt-3 pb-2">
+        <span className="font-semibold text-[10px] uppercase tracking-widest" style={{ color: 'var(--color-text-secondary, #958ea0)' }}>Notebooks</span>
         <button onClick={() => setShowNew(true)}
-          style={{ background: 'none', border: 'none', color: '#a078ff', fontSize: '16px', cursor: 'pointer', padding: '2px 6px', borderRadius: '4px' }}>+</button>
+          className="bg-transparent border-none text-[#a078ff] text-base cursor-pointer px-1.5 py-0.5 rounded">+</button>
       </div>
 
       {showNew && (
-        <div style={{ padding: '12px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+        <div className="px-3 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="名稱" autoFocus
-            style={{ width: '100%', padding: '6px 8px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#fff', fontSize: '13px', marginBottom: '6px', boxSizing: 'border-box' }} />
+            className="w-full py-1.5 px-2 bg-black/30 border border-white/10 rounded text-white text-[13px] mb-1.5 box-border" />
           <input value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="描述（選填）"
-            style={{ width: '100%', padding: '6px 8px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#fff', fontSize: '13px', marginBottom: '6px', boxSizing: 'border-box' }} />
-          <div style={{ display: 'flex', gap: '4px', marginBottom: '6px', flexWrap: 'wrap' }}>
+            className="w-full py-1.5 px-2 bg-black/30 border border-white/10 rounded text-white text-[13px] mb-1.5 box-border" />
+          <div className="flex gap-1 mb-1.5 flex-wrap">
             {NOTEBOOK_ICONS.map(icon => (
               <button key={icon} onClick={() => setSelectedIcon(icon)}
-                style={{ background: selectedIcon === icon ? 'rgba(160,120,255,0.3)' : 'none', border: 'none', fontSize: '16px', cursor: 'pointer', padding: '2px', borderRadius: '4px' }}>{icon}</button>
+                className={`${selectedIcon === icon ? 'bg-[rgba(160,120,255,0.3)]' : 'bg-transparent'} border-none text-base cursor-pointer p-0.5 rounded`}>{icon}</button>
             ))}
           </div>
-          <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+          <div className="flex gap-1 mb-2">
             {NOTEBOOK_COLORS.map(color => (
               <button key={color} onClick={() => setSelectedColor(color)}
-                style={{ width: '18px', height: '18px', borderRadius: '50%', background: color, border: selectedColor === color ? '2px solid #fff' : '2px solid transparent', cursor: 'pointer' }} />
+                className="w-[18px] h-[18px] rounded-full cursor-pointer" style={{ background: color, border: selectedColor === color ? '2px solid #fff' : '2px solid transparent' }} />
             ))}
           </div>
-          <div style={{ display: 'flex', gap: '6px' }}>
-            <button onClick={handleCreate} style={{ flex: 1, padding: '6px', background: 'linear-gradient(135deg, #a078ff, #0566d9)', border: 'none', borderRadius: '4px', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>建立</button>
-            <button onClick={() => setShowNew(false)} style={{ flex: 1, padding: '6px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '4px', color: '#958ea0', fontSize: '12px', cursor: 'pointer' }}>取消</button>
+          <div className="flex gap-1.5">
+            <button onClick={handleCreate} className="flex-1 py-1.5 rounded-none border-none rounded text-white text-xs cursor-pointer" style={{ background: 'linear-gradient(135deg, #a078ff, #0566d9)' }}>建立</button>
+            <button onClick={() => setShowNew(false)} className="flex-1 py-1.5 bg-white/10 border-none rounded text-[#958ea0] text-xs cursor-pointer">取消</button>
           </div>
         </div>
       )}
 
-      <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
+      <div className="flex-1 overflow-auto p-2">
         {notebooks.map(nb => (
           <div key={nb.id} onClick={() => onSelectNotebook(nb)}
-            style={{
-              padding: '6px 8px', borderRadius: '6px', cursor: 'pointer', marginBottom: '2px',
-              background: selectedNotebook?.id === nb.id ? 'rgba(160,120,255,0.1)' : 'transparent',
-              border: selectedNotebook?.id === nb.id ? '0.5px solid rgba(160,120,255,0.2)' : '0.5px solid transparent',
-            }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: nb.color || '#a078ff', flexShrink: 0 }} />
-              <span style={{ color: '#e0d8e8', fontSize: '13px', fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nb.name}</span>
+            className={`px-2 py-1.5 rounded-md cursor-pointer mb-0.5 ${selectedNotebook?.id === nb.id ? 'bg-[rgba(160,120,255,0.1)] border border-[rgba(160,120,255,0.2)]' : 'border border-transparent'}`}>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: nb.color || '#a078ff' }} />
+              <span className="text-[#e0d8e8] text-[13px] font-medium flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{nb.name}</span>
             </div>
-            <div style={{ paddingLeft: '14px', fontSize: '11px', color: '#958ea0', marginTop: '1px' }}>
+            <div className="pl-[14px] text-[11px] text-[#958ea0] mt-px">
               {nb.noteCount} 篇筆記
             </div>
           </div>
         ))}
         {notebooks.length === 0 && (
-          <div style={{ textAlign: 'center', color: '#958ea0', padding: '32px 12px', fontSize: '12px' }}>尚無筆記本</div>
+          <div className="text-center text-[#958ea0] py-8 px-3 text-xs">尚無筆記本</div>
         )}
       </div>
 
