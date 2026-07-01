@@ -1,4 +1,5 @@
-import { autoUpdater, UpdateInfo } from 'electron-updater'
+import electronUpdater, { type UpdateInfo } from 'electron-updater'
+const { autoUpdater } = electronUpdater
 import { BrowserWindow } from 'electron'
 
 // TODO: Phase 2 - 完整自動更新流程（需要設定 publish 配置和更新伺服器）
