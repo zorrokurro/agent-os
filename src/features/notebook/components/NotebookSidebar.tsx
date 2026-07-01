@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import type { Notebook, Source } from '../types'
 import { NOTEBOOK_COLORS, NOTEBOOK_ICONS } from '../types'
 import { SourcePanel } from './SourcePanel'
@@ -26,7 +26,7 @@ interface Props {
   }
 }
 
-export function NotebookSidebar({   notebooks, selectedNotebook, sources, onSelectNotebook, onCreateNotebook, sourceProps }: Props) {
+export const NotebookSidebar = React.memo(function NotebookSidebar({   notebooks, selectedNotebook, sources, onSelectNotebook, onCreateNotebook, sourceProps }: Props) {
   const [showNew, setShowNew] = useState(false)
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
@@ -104,4 +104,4 @@ export function NotebookSidebar({   notebooks, selectedNotebook, sources, onSele
       )}
     </div>
   )
-}
+})

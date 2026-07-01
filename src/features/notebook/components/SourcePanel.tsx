@@ -1,3 +1,4 @@
+import React from 'react'
 import type { Source } from '../types'
 
 interface Props {
@@ -17,7 +18,7 @@ interface Props {
   onDeleteSource: (id: string) => void
 }
 
-export function SourcePanel({ sources, showUrlInput, urlInput, showTextInput, textInput, sourceLoading, setShowUrlInput, setUrlInput, setShowTextInput, setTextInput, onImportPDF, onImportURL, onImportText, onDeleteSource }: Props) {
+export const SourcePanel = React.memo(function SourcePanel({ sources, showUrlInput, urlInput, showTextInput, textInput, sourceLoading, setShowUrlInput, setUrlInput, setShowTextInput, setTextInput, onImportPDF, onImportURL, onImportText, onDeleteSource }: Props) {
   return (
     <div style={{ borderTop: '0.5px solid rgba(255,255,255,0.1)' }}>
       <div style={{ padding: '10px 12px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -86,4 +87,4 @@ export function SourcePanel({ sources, showUrlInput, urlInput, showTextInput, te
       </div>
     </div>
   )
-}
+})

@@ -1,3 +1,5 @@
+import React from 'react'
+
 interface Props {
   chatInput: string
   chatLoading: boolean
@@ -9,7 +11,7 @@ interface Props {
   onDeepAnalysis: () => void
 }
 
-export function ChatInput({ chatInput, chatLoading, onInputChange, onSend, onSummarize, onExtractTags, onGenerateOutline, onDeepAnalysis }: Props) {
+export const ChatInput = React.memo(function ChatInput({ chatInput, chatLoading, onInputChange, onSend, onSummarize, onExtractTags, onGenerateOutline, onDeepAnalysis }: Props) {
   return (
     <div style={{ borderTop: '0.5px solid rgba(255,255,255,0.1)', padding: '10px 16px' }}>
       <div style={{ display: 'flex', gap: '4px', marginBottom: '8px', flexWrap: 'wrap' }}>
@@ -37,4 +39,4 @@ export function ChatInput({ chatInput, chatLoading, onInputChange, onSend, onSum
       </div>
     </div>
   )
-}
+})

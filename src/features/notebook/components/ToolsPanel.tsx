@@ -1,3 +1,4 @@
+import React from 'react'
 import type { Notebook, Note } from '../types'
 
 interface Props {
@@ -15,7 +16,7 @@ interface Props {
   onFusionAnalysis: () => void
 }
 
-export function ToolsPanel({ notes, selectedNote, selectedNotebook, outlineLoading, summaryLoading, extractLoading, onSelectNote, onCreateNote, onGenerateOutline, onSummarizeNote, onExtractTags, onFusionAnalysis }: Props) {
+export const ToolsPanel = React.memo(function ToolsPanel({ notes, selectedNote, selectedNotebook, outlineLoading, summaryLoading, extractLoading, onSelectNote, onCreateNote, onGenerateOutline, onSummarizeNote, onExtractTags, onFusionAnalysis }: Props) {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column',
@@ -83,4 +84,4 @@ export function ToolsPanel({ notes, selectedNote, selectedNotebook, outlineLoadi
       </div>
     </div>
   )
-}
+})

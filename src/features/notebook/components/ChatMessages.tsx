@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import React, { useEffect } from 'react'
 import type { ChatMessage } from '../types'
 
 interface Props {
@@ -7,7 +7,7 @@ interface Props {
   chatEndRef: React.RefObject<HTMLDivElement>
 }
 
-export function ChatMessages({ messages, chatLoading, chatEndRef }: Props) {
+export const ChatMessages = React.memo(function ChatMessages({ messages, chatLoading, chatEndRef }: Props) {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, chatEndRef])
@@ -56,4 +56,4 @@ export function ChatMessages({ messages, chatLoading, chatEndRef }: Props) {
       <div ref={chatEndRef} />
     </div>
   )
-}
+})

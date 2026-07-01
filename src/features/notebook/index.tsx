@@ -58,10 +58,9 @@ export default function NotebookPage() {
 
   const handleExtractTags = useCallback(() => {
     chat.extractTags(nb.selectedNote, nb.selectedNotebook, async () => {
-      if (nb.selectedNotebook) await nb.selectNotebook(nb.selectedNotebook)
-      await nb.loadTags()
+      if (nb.selectedNotebook) nb.selectNotebook(nb.selectedNotebook)
     })
-  }, [chat.extractTags, nb.selectedNote, nb.selectedNotebook, nb.selectNotebook, nb.loadTags])
+  }, [chat.extractTags, nb.selectedNote, nb.selectedNotebook, nb.selectNotebook])
 
   const handleFusionAnalysis = useCallback(() => {
     chat.setChatInput('請用 Fusion 模式深度分析這篇筆記的所有論點')

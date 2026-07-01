@@ -1,0 +1,58 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "create": "Create",
+    "loading": "Loading...",
+    "error": "Error",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "search": "Search",
+    "settings": "Settings",
+    "name": "Name",
+    "description": "Description",
+    "title": "Title",
+    "content": "Content",
+    "tags": "Tags",
+    "addTag": "Add tag",
+    "noData": "No data",
+    "untitled": "Untitled",
+    "emptyNote": "Empty note"
+  },
+  "notebook": {
+    "notebooks": "Notebooks",
+    "notes": "Notes",
+    "sources": "Sources",
+    "tools": "Tools",
+    "createNotebook": "Create notebook",
+    "newNote": "New note",
+    "chatPlaceholder": "Ask a question...",
+    "aiThinking": "Thinking...",
+    "selectNoteHint": "Select or create a note to start editing",
+    "outline": "Generate outline",
+    "summary": "Summarize",
+    "extractTags": "Extract tags",
+    "deepAnalysis": "Deep analysis",
+    "fusionAnalysis": "Fusion deep analysis"
+  },
+  "library": {
+    "library": "Library",
+    "agents": "Agents",
+    "start": "Start",
+    "stop": "Stop",
+    "logs": "Logs",
+    "config": "Config",
+    "docs": "Docs",
+    "chat": "Chat"
+  },
+  "council": {
+    "council": "LLM Council",
+    "newDeliberation": "New deliberation",
+    "deliberate": "Deliberate",
+    "voting": "Voting",
+    "consensus": "Consensus",
+    "completed": "Completed"
+  }
+}

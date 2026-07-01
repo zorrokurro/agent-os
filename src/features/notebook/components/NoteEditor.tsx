@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { Note } from '../types'
@@ -47,7 +47,7 @@ interface Props {
   onRemoveTag: (note: Note, tag: string) => void
 }
 
-export function NoteEditor({ selectedNote, editContent, onContentChange, onTitleChange, onSave, onAddTag, onRemoveTag }: Props) {
+export const NoteEditor = React.memo(function NoteEditor({ selectedNote, editContent, onContentChange, onTitleChange, onSave, onAddTag, onRemoveTag }: Props) {
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit')
 
   return (
@@ -110,4 +110,4 @@ export function NoteEditor({ selectedNote, editContent, onContentChange, onTitle
       </div>
     </>
   )
-}
+})

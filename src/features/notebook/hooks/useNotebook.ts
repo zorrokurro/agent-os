@@ -1,30 +1,77 @@
-import { useState, useCallback, useEffect } from 'react'
-import type { Notebook, Note } from '../types'
+import { useState, useCallback } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import type { Notebook, Note } from '../../../types'
 import * as service from '../services/notebook.service'
 
 export function useNotebook() {
-  const [notebooks, setNotebooks] = useState<Notebook[]>([])
+  const queryClient = useQueryClient()
+
+  const { data: notebooks = [] } = useQuery({
+    queryKey: ['notebooks'],
+    queryFn: service.listNotebooks,
+  })
+
+  const { data: allTags = [] } = useQuery({
+    queryKey: ['tags'],
+    queryFn: service.getAllTags,
+  })
+
   const [selectedNotebook, setSelectedNotebook] = useState<Notebook | null>(null)
-  const [notes, setNotes] = useState<Note[]>([])
   const [selectedNote, setSelectedNote] = useState<Note | null>(null)
   const [editContent, setEditContent] = useState('')
-  const [allTags, setAllTags] = useState<Array<{ tag: string; count: number }>>([])
 
-  const loadNotebooks = useCallback(async () => {
-    setNotebooks(await service.listNotebooks())
-  }, [])
+  const { data: notes = [] } = useQuery({
+    queryKey: ['notes', selectedNotebook?.id],
+    queryFn: () => service.listNotes(selectedNotebook!.id),
+    enabled: !!selectedNotebook,
+  })
 
-  const loadTags = useCallback(async () => {
-    setAllTags(await service.getAllTags())
-  }, [])
+  const createNotebookMutation = useMutation({
+    mutationFn: (params: { name: string; desc: string; icon: string; color: string }) =>
+      service.createNotebook(params.name, params.desc, params.icon, params.color),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notebooks'] })
+    },
+  })
 
-  useEffect(() => { loadNotebooks(); loadTags() }, [loadNotebooks, loadTags])
+  const deleteNotebookMutation = useMutation({
+    mutationFn: (id: string) => service.deleteNotebook(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notebooks'] })
+      setSelectedNotebook(null)
+    },
+  })
 
-  const selectNotebook = useCallback(async (nb: Notebook) => {
+  const createNoteMutation = useMutation({
+    mutationFn: (params: { notebookId: string; title: string }) =>
+      service.createNote(params.notebookId, params.title),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notes', selectedNotebook?.id] })
+    },
+  })
+
+  const updateNoteMutation = useMutation({
+    mutationFn: (params: { noteId: string; patch: Record<string, unknown> }) =>
+      service.updateNote(params.noteId, params.patch),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notes', selectedNotebook?.id] })
+      queryClient.invalidateQueries({ queryKey: ['tags'] })
+    },
+  })
+
+  const deleteNoteMutation = useMutation({
+    mutationFn: (noteId: string) => service.deleteNote(noteId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notes', selectedNotebook?.id] })
+      setSelectedNote(null)
+      setEditContent('')
+    },
+  })
+
+  const selectNotebook = useCallback((nb: Notebook) => {
     setSelectedNotebook(nb)
     setSelectedNote(null)
     setEditContent('')
-    setNotes(await service.listNotes(nb.id))
   }, [])
 
   const selectNote = useCallback((note: Note) => {
@@ -34,60 +81,40 @@ export function useNotebook() {
 
   const createNotebook = useCallback(async (name: string, desc: string, icon: string, color: string) => {
     if (!name.trim()) return
-    const result = await service.createNotebook(name, desc, icon, color)
-    if (result && 'error' in result) return
-    await loadNotebooks()
-  }, [loadNotebooks])
+    await createNotebookMutation.mutateAsync({ name, desc, icon, color })
+  }, [createNotebookMutation])
 
   const createNote = useCallback(async () => {
     if (!selectedNotebook) return
-    const note = await service.createNote(selectedNotebook.id, '未命名筆記')
-    await selectNotebook(selectedNotebook)
+    const note = await createNoteMutation.mutateAsync({ notebookId: selectedNotebook.id, title: '未命名筆記' })
     selectNote(note)
-  }, [selectedNotebook, selectNotebook, selectNote])
+  }, [selectedNotebook, createNoteMutation, selectNote])
 
   const saveNote = useCallback(async () => {
     if (!selectedNote) return
-    await service.updateNote(selectedNote.id, { content: editContent })
-    if (selectedNotebook) await selectNotebook(selectedNotebook)
-  }, [selectedNote, editContent, selectedNotebook, selectNotebook])
+    await updateNoteMutation.mutateAsync({ noteId: selectedNote.id, patch: { content: editContent } })
+  }, [selectedNote, editContent, updateNoteMutation])
 
-  const deleteNotebook = useCallback(async (id: string) => {
-    await service.deleteNotebook(id)
-    if (selectedNotebook?.id === id) {
-      setSelectedNotebook(null)
-      setNotes([])
-      setSelectedNote(null)
-    }
-    await loadNotebooks()
-  }, [selectedNotebook, loadNotebooks])
+  const deleteNotebookFn = useCallback(async (id: string) => {
+    await deleteNotebookMutation.mutateAsync(id)
+  }, [deleteNotebookMutation])
 
-  const deleteNote = useCallback(async (id: string) => {
-    await service.deleteNote(id)
-    if (selectedNote?.id === id) {
-      setSelectedNote(null)
-      setEditContent('')
-    }
-    if (selectedNotebook) await selectNotebook(selectedNotebook)
-  }, [selectedNote, selectedNotebook, selectNotebook])
+  const deleteNoteFn = useCallback(async (id: string) => {
+    await deleteNoteMutation.mutateAsync(id)
+  }, [deleteNoteMutation])
 
   const togglePin = useCallback(async (note: Note) => {
-    await service.updateNote(note.id, { pinned: !note.pinned })
-    if (selectedNotebook) await selectNotebook(selectedNotebook)
-  }, [selectedNotebook, selectNotebook])
+    await updateNoteMutation.mutateAsync({ noteId: note.id, patch: { pinned: !note.pinned } })
+  }, [updateNoteMutation])
 
   const addTag = useCallback(async (note: Note, tag: string) => {
     if (!tag.trim() || note.tags.includes(tag)) return
-    await service.updateNote(note.id, { tags: [...note.tags, tag] })
-    if (selectedNotebook) await selectNotebook(selectedNotebook)
-    await loadTags()
-  }, [selectedNotebook, selectNotebook, loadTags])
+    await updateNoteMutation.mutateAsync({ noteId: note.id, patch: { tags: [...note.tags, tag] } })
+  }, [updateNoteMutation])
 
   const removeTag = useCallback(async (note: Note, tag: string) => {
-    await service.updateNote(note.id, { tags: note.tags.filter(t => t !== tag) })
-    if (selectedNotebook) await selectNotebook(selectedNotebook)
-    await loadTags()
-  }, [selectedNotebook, selectNotebook, loadTags])
+    await updateNoteMutation.mutateAsync({ noteId: note.id, patch: { tags: note.tags.filter(t => t !== tag) } })
+  }, [updateNoteMutation])
 
   const updateEditContent = useCallback((content: string) => {
     setEditContent(content)
@@ -101,8 +128,8 @@ export function useNotebook() {
   return {
     notebooks, selectedNotebook, notes, selectedNote, editContent, allTags,
     selectNotebook, selectNote, createNotebook, createNote, saveNote,
-    deleteNotebook, deleteNote, togglePin, addTag, removeTag,
+    deleteNotebook: deleteNotebookFn, deleteNote: deleteNoteFn,
+    togglePin, addTag, removeTag,
     updateEditContent, updateSelectedNoteTitle,
-    loadNotebooks, loadTags,
   }
 }
