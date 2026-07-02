@@ -1,68 +1,120 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import type { AgentInfo, OllamaStatus } from '../types'
+/**
+ * Library Service
+ *
+ * Thin wrapper around LibraryRepository.
+ * Provides the same function signatures as before for backward compatibility.
+ *
+ * Migration path:
+ *   Phase 1 (now): Service uses IPCClient internally
+ *   Phase 2: Hooks use Repository directly
+ *   Phase 3: Remove this service layer
+ */
 
-const api = () => window.electronAPI as any
+import { IPCClient } from '../../../core/ipc/IPCClient'
+import { ElectronTransport } from '../../../core/ipc/transports/ElectronTransport'
+import { LibraryRepository } from '../repositories/LibraryRepository'
+import type { AgentInfo, OllamaStatus } from '../types'
+import type { IPCStreamHandle } from '../../../core/ipc/IPCClient'
+
+// ─── Singleton IPC Client & Repository ───────────────────────────────────────
+
+let _repo: LibraryRepository | null = null
+
+function getRepo(): LibraryRepository {
+  if (!_repo) {
+    const transport = new ElectronTransport()
+    const ipc = new IPCClient(transport)
+    _repo = new LibraryRepository(ipc)
+  }
+  return _repo
+}
+
+// ─── Exported API (same signatures as before) ────────────────────────────────
 
 export async function getAgents(): Promise<AgentInfo[]> {
-  return api().getAgents()
+  return getRepo().listAgents()
 }
 
 export async function getAgentStatus(id: string): Promise<{ status: string }> {
-  return api().getAgentStatus(id)
+  return getRepo().getAgentStatus(id)
 }
 
 export async function startAgent(id: string): Promise<{ success: boolean; error?: string }> {
-  return api().startAgent(id)
+  return getRepo().startAgent(id)
 }
 
 export async function stopAgent(id: string): Promise<{ success: boolean; error?: string }> {
-  return api().stopAgent(id)
+  return getRepo().stopAgent(id)
 }
 
 export async function checkOllama(): Promise<OllamaStatus> {
-  return api().checkOllama()
+  return getRepo().checkOllama()
 }
 
 export async function getFavorites(): Promise<string[]> {
-  return api().getFavorites()
+  return getRepo().getFavorites()
 }
 
 export async function toggleFavorite(agentId: string): Promise<{ favorites: string[] }> {
-  return api().toggleFavorite(agentId)
+  return getRepo().toggleFavorite(agentId)
 }
 
 export async function listModels(): Promise<string[]> {
-  return api().listModels()
+  return getRepo().listModels()
 }
 
 export async function listApiModels(): Promise<string[]> {
-  return api().listApiModels()
+  return getRepo().listApiModels()
 }
 
 export async function chatStream(model: string, messages: Array<{ role: string; content: string }>): Promise<{ success: boolean; reply?: string; error?: string }> {
-  return api().chatStream(model, messages)
+  try {
+    const reply = await getRepo().chat(model, messages)
+    return { success: true, reply }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
+  }
 }
 
 export async function getAgentLogs(id: string): Promise<{ logs: string[] }> {
-  return api().getAgentLogs(id)
+  return getRepo().getAgentLogs(id)
 }
 
 export async function getAgentDocs(id: string): Promise<{ description: string; readme: string }> {
-  return api().getAgentDocs(id)
+  return getRepo().getAgentDocs(id)
 }
 
 export async function saveConversation(agentName: string, messages: Array<{ role: string; content: string }>): Promise<{ success: boolean }> {
-  return api().saveConversation(agentName, messages)
+  return getRepo().saveConversation(agentName, messages)
 }
 
+// ─── Event Subscriptions ─────────────────────────────────────────────────────
+
 export function onChatToken(cb: (token: string) => void): () => void {
-  return api().onChatToken(cb)
+  const ipc = new IPCClient(new ElectronTransport())
+  return ipc.on('chat-token', cb)
 }
 
 export function onChatDone(cb: (reply: string) => void): () => void {
-  return api().onChatDone(cb)
+  const ipc = new IPCClient(new ElectronTransport())
+  return ipc.on('chat-done', cb)
 }
 
 export function onChatError(cb: (error: string) => void): () => void {
-  return api().onChatError(cb)
+  const ipc = new IPCClient(new ElectronTransport())
+  return ipc.on('chat-error', cb)
+}
+
+/**
+ * Stream chat with proper event handling.
+ * Returns a handle that can be disposed to cancel subscriptions.
+ */
+export function streamChat(options: {
+  model: string
+  messages: Array<{ role: string; content: string }>
+  onToken?: (token: string) => void
+  onDone?: (reply: string) => void
+  onError?: (error: string) => void
+}): IPCStreamHandle {
+  return getRepo().streamChat(options)
 }

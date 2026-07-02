@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { sendToBrain } from '../../core/BrainService'
+import { sendToBrain } from '../../agents/BrainService'
 import { useModelConfig } from '../../hooks/useModelConfig'
 import ModelSelector from './ModelSelector'
 

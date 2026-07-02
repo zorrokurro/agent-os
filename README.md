@@ -99,6 +99,59 @@ Full integration test results are summarized in the table above. Detailed logs a
 
 ---
 
+## Core SDK
+
+The Core SDK (`src/core/`) is a zero-dependency, UI-agnostic foundation for the AgentOS platform. It provides modular, testable components that can be used independently.
+
+### Architecture
+
+```
+AgentOSRuntime (single entry point)
+├── AgentRuntime          — Agent execution & lifecycle
+│   ├── AgentRegistry     — Queryable agent definitions
+│   ├── SessionManager    — Conversation history & TTL
+│   ├── AgentExecutor     — Pluggable handler-based execution
+│   └── AgentScheduler    — Priority queue with concurrency
+├── WorkflowRuntime       — DAG-based workflow execution
+│   ├── WorkflowEngine    — State machine + parallel execution
+│   ├── TaskGraph         — Dependency resolution
+│   └── CommandBus        — Command → Handler → Event
+├── PluginManager         — Extension system
+│   ├── PluginRegistry    — Plugin lifecycle management
+│   ├── CapabilityRegistry— Command/Task/Workflow/Event/Service
+│   └── PluginLoader      — Filesystem/Builtin/Remote sources
+└── MemoryEngine          — Knowledge storage & retrieval
+    ├── KnowledgeGraph    — Entity & relationship management
+    ├── RetrievalEngine   — Hybrid search & context assembly
+    └── Providers         — Swappable storage/embedding/search
+```
+
+### Modules
+
+| Module | Description | Tests |
+|--------|-------------|-------|
+| IPC | Type-safe IPC client with mock transport | — |
+| Logger | Structured logging with correlation IDs | — |
+| Errors | Typed error hierarchy (AppError, IPCError, ValidationError) | — |
+| Events | Type-safe event bus with 30+ events | 19 |
+| Metrics | Counter, Histogram, Gauge, Timer | — |
+| Workflow Runtime | DAG execution with state machine | 56 |
+| Plugin System | Plugin lifecycle, capabilities, health checks | 39 |
+| Knowledge Runtime | Memory engine with retrieval & embeddings | 40 |
+| Agent Runtime | Agent registry, sessions, execution, scheduling | 53 |
+| AgentOS Runtime | Single entry point for all runtimes | 11 |
+| **Total** | | **218** |
+
+### Dependency Direction
+
+```
+UI Feature → Core SDK → Infrastructure
+```
+
+Core SDK has ZERO dependencies on React, Electron, DOM, or any UI framework.
+
+---
+
 ## Ecosystem
 
 | Project | Description |
@@ -147,6 +200,7 @@ Requires: Node.js 18+, npm 9+, Python (some agents depend on it), Git
 - **MCP SDK**: @modelcontextprotocol/sdk 1.29.0
 - **Packaging**: electron-builder (NSIS installer)
 - **Code Quality**: ESLint 9 (flat config) + Prettier
+- **Testing**: Vitest (218 tests)
 
 ---
 
@@ -154,6 +208,8 @@ Requires: Node.js 18+, npm 9+, Python (some agents depend on it), Git
 
 ```bash
 npm run dev          # Start dev server
+npm run test:unit    # Run unit tests (218 tests)
+npm run test:watch   # Watch mode for tests
 npm run typecheck    # TypeScript strict check
 npm run lint         # ESLint
 npm run format       # Prettier format

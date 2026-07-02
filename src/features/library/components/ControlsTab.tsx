@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { formatModelLabel } from '../../../hooks/useModelConfig'
 import type { AgentInfo } from '../types'
 import type { useLibraryStreaming } from '../hooks/useLibraryStreaming'
+import * as service from '../services/library.service'
 
 interface ControlsTabProps {
   agent: AgentInfo
@@ -18,8 +19,8 @@ export const ControlsTab = React.memo(function ControlsTab({ agent, agentStatus,
 
   useEffect(() => {
     Promise.all([
-      window.electronAPI.listModels(),
-      window.electronAPI.listApiModels().catch((): string[] => []),
+      service.listModels(),
+      service.listApiModels().catch((): string[] => []),
     ]).then(([ollama, api]) => {
       const all = [...ollama, ...api]
       setModels(all)

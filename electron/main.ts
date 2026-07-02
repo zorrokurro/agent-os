@@ -3,6 +3,13 @@ import path from 'path'
 import fs from 'fs'
 import os from 'os'
 import crypto from 'crypto'
+
+// Deterministic encryption key based on machine ID (stable across restarts)
+const ENCRYPTION_KEY = crypto
+  .createHash('sha256')
+  .update(`agentos-${os.hostname()}-${os.userInfo().username}`)
+  .digest('hex')
+  .slice(0, 32)
 import { validate, schemas } from './ipc/validate'
 import { detectHardware } from './services/hardware'
 import { getAgentManager } from './services/agent-manager'
@@ -58,7 +65,7 @@ const store = new Store<{
   discordEnabled: boolean
   mcpServers: McpServerConfig[]
 }>({
-  encryptionKey: process.env.AGENTOS_ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex'),
+  encryptionKey: process.env.AGENTOS_ENCRYPTION_KEY || ENCRYPTION_KEY,
   name: 'settings',
   defaults: {
     installed: false,
